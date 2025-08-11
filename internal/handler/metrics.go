@@ -57,8 +57,6 @@ func (h *MtrHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.storage.SetVal(metricName, models.Metrics{MType: models.Gauge, Value: &value})
-		// gauges[metricName] = value
-		w.WriteHeader(http.StatusOK)
 
 	case models.Counter:
 		value, err := strconv.ParseInt(metricValueStr, 10, 64)
@@ -67,12 +65,8 @@ func (h *MtrHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.storage.SetVal(metricName, models.Metrics{MType: models.Gauge, Delta: &value})
-		// counters[metricName] += value
-		w.WriteHeader(http.StatusOK)
-
-		// default:
-		// 	w.WriteHeader(http.StatusBadRequest)
 	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func TypeCheck(metricType string) bool {
