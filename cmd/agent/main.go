@@ -12,7 +12,7 @@ import (
 var cfg agent.ConfigAgent
 
 func main() {
-	flag.StringVar(&cfg.HttpAddr, "a", "localhost:8080", "address and port to run server")
+	flag.StringVar(&cfg.HTTPAddr, "a", "localhost:8080", "address and port to run server")
 	flag.IntVar(&cfg.ReportInterval, "r", 10, "reportInterval")
 	flag.IntVar(&cfg.PollInterval, "p", 2, "pollInterval")
 

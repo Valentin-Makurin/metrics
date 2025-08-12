@@ -14,7 +14,7 @@ import (
 )
 
 type ConfigAgent struct {
-	HttpAddr       string
+	HTTPAddr       string
 	PollInterval   int
 	ReportInterval int
 }
@@ -119,7 +119,7 @@ func (a *agent) postMtr() {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	for key, val := range a.guideStorage {
-		url := prepareURL(models.Gauge, key, a.config.HttpAddr, val)
+		url := prepareURL(models.Gauge, key, a.config.HTTPAddr, val)
 		resp, err := a.client.Post(url, "text/plain", nil)
 		if err != nil {
 			log.Println("post Gauge error", err, "key", key, "val", val)
@@ -129,7 +129,7 @@ func (a *agent) postMtr() {
 		}
 	}
 	for key, val := range a.counterStorage {
-		url := prepareURL(models.Counter, key, a.config.HttpAddr, val)
+		url := prepareURL(models.Counter, key, a.config.HTTPAddr, val)
 		resp, err := a.client.Post(url, "text/plain", nil)
 		if err != nil {
 			log.Println("post Counter error", err, "key", key, "val", val)
