@@ -138,5 +138,5 @@ func (a *agent) postMtr() {
 
 func prepareURL(ty, key string, val interface{}) string {
 	strVal := fmt.Sprintf("%v", val)
-	return "http://localhost:8080/update/" + models.Counter + "/" + key + "/" + strVal
+	return "http://localhost:8080/update/" + ty + "/" + key + "/" + strVal
 }

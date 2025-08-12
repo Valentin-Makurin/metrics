@@ -17,5 +17,5 @@ func main() {
 	agent := agent.NewAgent(2, 10, ctx)
 	agent.Start()
 
-	log.Println("job done")
+	log.Println("job is done")
 }
