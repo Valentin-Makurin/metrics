@@ -13,25 +13,29 @@ import (
 	models "github.com/Valentin-Makurin/metrics/internal/model"
 )
 
+type ConfigAgent struct {
+	HttpAddr       string
+	PollInterval   int
+	ReportInterval int
+}
+
 type agent struct {
 	client         *http.Client
-	pollInterval   int
-	reportInterval int
 	ctx            context.Context
 	wg             sync.WaitGroup
 	guideStorage   map[string]interface{}
 	counterStorage map[string]uint
 	mu             sync.RWMutex
+	config         ConfigAgent
 }
 
-func NewAgent(plItr, repItr int, ctx context.Context) *agent {
+func NewAgent(ctx context.Context, cfg ConfigAgent) *agent {
 	return &agent{
 		client:         &http.Client{},
-		pollInterval:   plItr,
-		reportInterval: repItr,
 		ctx:            ctx,
 		guideStorage:   make(map[string]interface{}),
 		counterStorage: make(map[string]uint),
+		config:         cfg,
 	}
 }
 
@@ -43,7 +47,7 @@ func (a *agent) Start() {
 }
 
 func (a *agent) collect() {
-	ticker := time.NewTicker(time.Second * time.Duration(a.pollInterval))
+	ticker := time.NewTicker(time.Second * time.Duration(a.config.PollInterval))
 	defer ticker.Stop()
 	defer a.wg.Done()
 
@@ -59,7 +63,7 @@ func (a *agent) collect() {
 }
 
 func (a *agent) send() {
-	ticker := time.NewTicker(time.Second * time.Duration(a.reportInterval))
+	ticker := time.NewTicker(time.Second * time.Duration(a.config.ReportInterval))
 	defer ticker.Stop()
 	defer a.wg.Done()
 	for {
@@ -115,7 +119,7 @@ func (a *agent) postMtr() {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	for key, val := range a.guideStorage {
-		url := prepareURL(models.Gauge, key, val)
+		url := prepareURL(models.Gauge, key, a.config.HttpAddr, val)
 		resp, err := a.client.Post(url, "text/plain", nil)
 		if err != nil {
 			log.Println("post Gauge error", err, "key", key, "val", val)
@@ -125,7 +129,7 @@ func (a *agent) postMtr() {
 		}
 	}
 	for key, val := range a.counterStorage {
-		url := prepareURL(models.Counter, key, val)
+		url := prepareURL(models.Counter, key, a.config.HttpAddr, val)
 		resp, err := a.client.Post(url, "text/plain", nil)
 		if err != nil {
 			log.Println("post Counter error", err, "key", key, "val", val)
@@ -136,7 +140,7 @@ func (a *agent) postMtr() {
 	}
 }
 
-func prepareURL(ty, key string, val interface{}) string {
+func prepareURL(ty, key, addr string, val interface{}) string {
 	strVal := fmt.Sprintf("%v", val)
-	return "http://localhost:8080/update/" + ty + "/" + key + "/" + strVal
+	return "http://" + addr + "/update/" + ty + "/" + key + "/" + strVal
 }

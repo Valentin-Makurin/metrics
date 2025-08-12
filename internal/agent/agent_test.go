@@ -12,7 +12,7 @@ import (
 
 func TestAgent_Start(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	agent := NewAgent(1, 1, ctx)
+	agent := NewAgent(ctx, ConfigAgent{HttpAddr: "localhost:8080", PollInterval: 2, ReportInterval: 10})
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -28,7 +28,7 @@ func TestAgent_Start(t *testing.T) {
 }
 
 func TestAgent_writeMtr(t *testing.T) {
-	agent := NewAgent(1, 1, context.Background())
+	agent := NewAgent(context.Background(), ConfigAgent{HttpAddr: "localhost:8080", PollInterval: 2, ReportInterval: 10})
 	var memStats runtime.MemStats
 
 	agent.writeMtr(&memStats)
@@ -51,7 +51,7 @@ func TestAgent_postMtr(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	agent := NewAgent(1, 1, context.Background())
+	agent := NewAgent(context.Background(), ConfigAgent{HttpAddr: "localhost:8080", PollInterval: 2, ReportInterval: 10})
 	agent.client = ts.Client()
 
 	agent.mu.Lock()
@@ -74,7 +74,7 @@ func TestAgent_postMtr(t *testing.T) {
 }
 
 func TestAgent_ConcurrentAccess(t *testing.T) {
-	agent := NewAgent(1, 1, context.Background())
+	agent := NewAgent(context.Background(), ConfigAgent{HttpAddr: "localhost:8080", PollInterval: 2, ReportInterval: 10})
 	var memStats runtime.MemStats
 
 	var wg sync.WaitGroup
