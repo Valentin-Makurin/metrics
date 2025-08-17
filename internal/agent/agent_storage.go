@@ -55,7 +55,7 @@ func (s *MemStorage) GetCounter(key string) uint {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	val, _ := s.counterStorage[key]
+	val := s.counterStorage[key]
 	return val
 }
 
