@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -12,7 +11,12 @@ import (
 
 func TestAgent_Start(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	agent := NewAgent(ctx, ConfigAgent{HTTPAddr: "localhost:8080", PollInterval: 2, ReportInterval: 10})
+
+	collector := NewRuntimeCollector()
+	storage := NewMemStorage()
+	sender := NewHTTPSender("localhost:8080")
+
+	agent := NewAgent(ctx, ConfigAgent{PollInterval: 2, ReportInterval: 10}, collector, storage, sender)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -28,19 +32,19 @@ func TestAgent_Start(t *testing.T) {
 }
 
 func TestAgent_writeMtr(t *testing.T) {
-	agent := NewAgent(context.Background(), ConfigAgent{HTTPAddr: "localhost:8080", PollInterval: 2, ReportInterval: 10})
-	var memStats runtime.MemStats
+	collector := NewRuntimeCollector()
+	storage := NewMemStorage()
+	sender := NewHTTPSender("localhost:8080")
 
-	agent.writeMtr(&memStats)
+	agent := NewAgent(context.Background(), ConfigAgent{PollInterval: 2, ReportInterval: 10}, collector, storage, sender)
 
-	agent.mu.RLock()
-	defer agent.mu.RUnlock()
+	agent.writeMtr()
 
-	if len(agent.guideStorage) == 0 {
+	if len(agent.storage.GetAllGauges()) == 0 {
 		t.Error("Expected metrics to be written to guideStorage")
 	}
 
-	if agent.counterStorage["PollCount"] != 1 {
+	if agent.storage.GetCounter("PollCount") != 1 {
 		t.Errorf("Expected PollCount 1")
 	}
 }
@@ -51,47 +55,43 @@ func TestAgent_postMtr(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	agent := NewAgent(context.Background(), ConfigAgent{HTTPAddr: "localhost:8080", PollInterval: 2, ReportInterval: 10})
-	agent.client = ts.Client()
+	storage := NewMemStorage()
+	sender := NewHTTPSender(ts.URL)
+	agent := NewAgent(context.Background(), ConfigAgent{PollInterval: 2, ReportInterval: 10}, nil, storage, sender)
 
-	agent.mu.Lock()
-	agent.guideStorage["TestGauge"] = 123.45
-	agent.counterStorage["TestCounter"] = 42
-	agent.mu.Unlock()
+	agent.storage.SetGauge("TestGauge", 123.45)
+	agent.storage.AddCounter("TestCounter", 42)
 
 	agent.postMtr()
 
-	agent.mu.RLock()
-	defer agent.mu.RUnlock()
-
-	if val, ok := agent.guideStorage["TestGauge"]; !ok || val != 123.45 {
+	if val := agent.storage.GetGauge("TestGauge"); val != 123.45 {
 		t.Error("Gauge data changed unexpectedly")
 	}
 
-	if val, ok := agent.counterStorage["TestCounter"]; !ok || val != 42 {
+	if val := agent.storage.GetCounter("TestCounter"); val != 42 {
 		t.Error("Counter data changed unexpectedly")
 	}
 }
 
 func TestAgent_ConcurrentAccess(t *testing.T) {
-	agent := NewAgent(context.Background(), ConfigAgent{HTTPAddr: "localhost:8080", PollInterval: 2, ReportInterval: 10})
-	var memStats runtime.MemStats
+	collector := NewRuntimeCollector()
+	storage := NewMemStorage()
+	sender := NewHTTPSender("localhost:8080")
+
+	agent := NewAgent(context.Background(), ConfigAgent{PollInterval: 2, ReportInterval: 10}, collector, storage, sender)
 
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			agent.writeMtr(&memStats)
+			agent.writeMtr()
 			agent.postMtr()
 		}()
 	}
 	wg.Wait()
 
-	agent.mu.RLock()
-	defer agent.mu.RUnlock()
-
-	if agent.counterStorage["PollCount"] != 10 {
+	if agent.storage.GetCounter("PollCount") != 10 {
 		t.Errorf("Expected PollCount 10")
 	}
 }

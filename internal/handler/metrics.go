@@ -8,15 +8,20 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Valentin-Makurin/metrics/internal/db"
 	models "github.com/Valentin-Makurin/metrics/internal/model"
 )
 
+type Storage interface {
+	SetVal(key string, mtr models.Metrics)
+	AddVal(key string, mtr models.Metrics)
+	GetVal(key string) models.Metrics
+	GetAllVal() map[string]string
+}
 type MtrHandler struct {
-	storage *db.MtrStorage
+	storage Storage
 }
 
-func NewMtrHandler(stor *db.MtrStorage) *MtrHandler {
+func NewMtrHandler(stor Storage) *MtrHandler {
 	return &MtrHandler{
 		storage: stor,
 	}
