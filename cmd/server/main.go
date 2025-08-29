@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/Valentin-Makurin/metrics/internal/db"
 	"github.com/Valentin-Makurin/metrics/internal/handler"
@@ -13,9 +14,11 @@ import (
 var flagRunAddr string
 
 func main() {
-
-	flag.StringVar(&flagRunAddr, "a", ":8080", "address and port to run server")
-	flag.Parse()
+	flagRunAddr = os.Getenv("ADDRESS")
+	if flagRunAddr == "" {
+		flag.StringVar(&flagRunAddr, "a", ":8080", "address and port to run server")
+		flag.Parse()
+	}
 
 	storage := db.NewStorage()
 	mtrHandler := handler.NewMtrHandler(storage)

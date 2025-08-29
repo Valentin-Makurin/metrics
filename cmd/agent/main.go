@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"log"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/Valentin-Makurin/metrics/internal/agent"
@@ -11,10 +13,31 @@ import (
 
 func main() {
 	var cfg agent.ConfigAgent
+	var err error
 
-	flag.StringVar(&cfg.HTTPAddr, "a", "localhost:8080", "address and port to run server")
-	flag.IntVar(&cfg.ReportInterval, "r", 10, "reportInterval")
-	flag.IntVar(&cfg.PollInterval, "p", 2, "pollInterval")
+	cfg.HTTPAddr = os.Getenv("ADDRESS")
+
+	cfg.ReportInterval, err = strconv.Atoi(os.Getenv("REPORT_INTERVAL"))
+	if err != nil {
+		log.Println("filed to pars string to int")
+	}
+
+	cfg.PollInterval, err = strconv.Atoi(os.Getenv("POLL_INTERVAL"))
+	if err != nil {
+		log.Println("filed to pars string to int")
+	}
+
+	if cfg.HTTPAddr == "" {
+		flag.StringVar(&cfg.HTTPAddr, "a", "localhost:8080", "address and port to run server")
+	}
+
+	if cfg.ReportInterval == 0 {
+		flag.IntVar(&cfg.ReportInterval, "r", 10, "reportInterval")
+	}
+
+	if cfg.PollInterval == 0 {
+		flag.IntVar(&cfg.PollInterval, "p", 2, "pollInterval")
+	}
 
 	flag.Parse()
 
