@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"html"
 	"log"
@@ -72,6 +73,54 @@ func (h *MtrHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *MtrHandler) HandlePostUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var metric models.Metrics
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&metric); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if metric.ID == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if !TypeCheck(metric.MType) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	switch metric.MType {
+	case models.Gauge:
+		if metric.Value == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		h.storage.SetVal(metric.ID, metric)
+
+	case models.Counter:
+		if metric.Delta == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		h.storage.AddVal(metric.ID, metric)
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func TypeCheck(metricType string) bool {
 	return metricType == models.Gauge || metricType == models.Counter
 }
@@ -113,6 +162,48 @@ func (h *MtrHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	_, err := w.Write([]byte(valStr))
 	if err != nil {
 		log.Printf("Failed to write response")
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+}
+
+func (h *MtrHandler) HandleGetValue(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var metric models.Metrics
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&metric); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if !TypeCheck(metric.MType) {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+
+	if metric.ID == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	res := h.storage.GetVal(metric.ID)
+	if res.MType == "" || res.MType != metric.MType {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	metric.Value = res.Value
+	metric.Delta = res.Delta
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(metric); err != nil {
+		log.Printf("Error encoding JSON response: %v", err)
 	}
 
 	w.WriteHeader(http.StatusOK)

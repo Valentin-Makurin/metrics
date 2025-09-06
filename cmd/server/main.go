@@ -35,7 +35,9 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.LoggerMiddleware(sugar))
 	r.Post("/update/{metricType}/{metricName}/{value}", mtrHandler.HandlePost)
+	r.Post("/update/", mtrHandler.HandlePostUpdate)
 	r.Get("/value/{metricType}/{metricName}", mtrHandler.HandleGet)
+	r.Post("/value/", mtrHandler.HandleGetValue)
 	r.Get("/", mtrHandler.HandleRoot)
 
 	log.Println("Running server on", flagRunAddr)

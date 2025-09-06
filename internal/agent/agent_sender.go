@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -26,29 +28,78 @@ func NewHTTPSender(baseURL string) *HTTPSender {
 
 func (s *HTTPSender) Send(gauges map[string]any, counters map[string]uint) error {
 	for key, val := range gauges {
-		url := prepareURL(models.Gauge, key, s.baseURL, val)
-		resp, err := s.client.Post(url, "text/plain", nil)
-		if err != nil {
+		if err := s.sendGaugeMetric(key, val); err != nil {
 			log.Println("post Gauge error", err, "key", key, "val", val)
 		}
-		if resp != nil {
-			resp.Body.Close()
-		}
 	}
+
 	for key, val := range counters {
-		url := prepareURL(models.Counter, key, s.baseURL, val)
-		resp, err := s.client.Post(url, "text/plain", nil)
-		if err != nil {
+		if err := s.sendCounterMetric(key, val); err != nil {
 			log.Println("post Counter error", err, "key", key, "val", val)
-		}
-		if resp != nil {
-			resp.Body.Close()
 		}
 	}
 	return nil
 }
 
-func prepareURL(ty, key, addr string, val interface{}) string {
-	strVal := fmt.Sprintf("%v", val)
-	return "http://" + addr + "/update/" + ty + "/" + key + "/" + strVal
+func (s *HTTPSender) sendGaugeMetric(key string, value interface{}) error {
+	metric := models.Metrics{
+		ID:    key,
+		MType: models.Gauge,
+	}
+
+	switch v := value.(type) {
+	case float64:
+		metric.Value = &v
+	case uint64:
+		floatVal := float64(v)
+		metric.Value = &floatVal
+	case uint32:
+		floatVal := float64(v)
+		metric.Value = &floatVal
+	case int64:
+		floatVal := float64(v)
+		metric.Value = &floatVal
+	default:
+		return fmt.Errorf("unsupported gauge value type: %T", value)
+	}
+
+	return s.sendJSONRequest(metric)
+}
+
+func (s *HTTPSender) sendCounterMetric(key string, value uint) error {
+	intVal := int64(value)
+	metric := models.Metrics{
+		ID:    key,
+		MType: models.Counter,
+		Delta: &intVal,
+	}
+
+	return s.sendJSONRequest(metric)
+}
+
+func (s *HTTPSender) sendJSONRequest(metric models.Metrics) error {
+	jsonData, err := json.Marshal(metric)
+	if err != nil {
+		return fmt.Errorf("json marshal error: %w", err)
+	}
+
+	url := "http://" + s.baseURL + "/update/"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("create request error: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("send request error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
 }
