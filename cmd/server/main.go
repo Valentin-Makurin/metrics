@@ -34,6 +34,7 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Use(middleware.LoggerMiddleware(sugar))
+	r.Use(middleware.GzipMiddleware)
 	r.Post("/update/{metricType}/{metricName}/{value}", mtrHandler.HandlePost)
 	r.Post("/update/", mtrHandler.HandlePostUpdate)
 	r.Get("/value/{metricType}/{metricName}", mtrHandler.HandleGet)
