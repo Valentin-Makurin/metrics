@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/Valentin-Makurin/metrics/internal/db"
 	"github.com/Valentin-Makurin/metrics/internal/handler"
@@ -13,14 +14,15 @@ import (
 	"go.uber.org/zap"
 )
 
-var flagRunAddr string
+var (
+	flagRunAddr       string
+	flagStoreInterval int
+	flagFilePath      string
+	flagRestore       bool
+)
 
 func main() {
-	flagRunAddr = os.Getenv("ADDRESS")
-	if flagRunAddr == "" {
-		flag.StringVar(&flagRunAddr, "a", ":8080", "address and port to run server")
-		flag.Parse()
-	}
+	initFlags()
 
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -29,7 +31,7 @@ func main() {
 	defer logger.Sync()
 	sugar := logger.Sugar()
 
-	storage := db.NewStorage()
+	storage := db.NewStorage(flagFilePath, flagStoreInterval, flagRestore)
 	mtrHandler := handler.NewMtrHandler(storage)
 
 	r := chi.NewRouter()
@@ -46,4 +48,39 @@ func main() {
 	if err != nil {
 		log.Println("Filed to start server", err)
 	}
+}
+
+func initFlags() {
+	defaultFilePath := "/tmp/metrics.json"
+
+	envAddr := os.Getenv("ADDRESS")
+	envInterval := os.Getenv("STORE_INTERVAL")
+	envFilePath := os.Getenv("FILE_STORAGE_PATH")
+	envRestore := os.Getenv("RESTORE")
+
+	if envAddr == "" {
+		flag.StringVar(&flagRunAddr, "a", ":8080", "address and port to run server")
+	} else {
+		flagRunAddr = envAddr
+	}
+
+	if envInterval == "" {
+		flag.IntVar(&flagStoreInterval, "i", 300, "interval to save metrics")
+	} else {
+		flagStoreInterval, _ = strconv.Atoi(envInterval)
+	}
+
+	if envFilePath == "" {
+		flag.StringVar(&flagFilePath, "f", defaultFilePath, "path to storage file")
+	} else {
+		flagFilePath = envFilePath
+	}
+
+	if envRestore == "" {
+		flag.BoolVar(&flagRestore, "r", true, "restore metrics from file on startup")
+	} else {
+		flagRestore, _ = strconv.ParseBool(envRestore)
+	}
+
+	flag.Parse()
 }

@@ -1,21 +1,162 @@
 package db
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	models "github.com/Valentin-Makurin/metrics/internal/model"
 )
 
 type MtrStorage struct {
-	mtr map[string]models.Metrics
-	mu  sync.RWMutex
+	file          *os.File
+	writer        *bufio.Writer
+	encoder       *json.Encoder
+	mtr           map[string]models.Metrics
+	mu            sync.RWMutex
+	filePath      string
+	storeInterval int
+	restore       bool
+	saveChan      chan struct{}
 }
 
-func NewStorage() *MtrStorage {
-	return &MtrStorage{
-		mtr: make(map[string]models.Metrics),
+func NewStorage(filePath string, storeInterval int, restore bool) *MtrStorage {
+	storage := &MtrStorage{
+		mtr:           make(map[string]models.Metrics),
+		filePath:      filePath,
+		storeInterval: storeInterval,
+		restore:       restore,
+		saveChan:      make(chan struct{}, 1),
+	}
+
+	if restore && filePath != "" {
+		if err := storage.LoadFromFile(); err != nil {
+			log.Printf("Failed to load metrics from file: %v", err)
+		}
+	}
+
+	if filePath != "" {
+		file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+		if err == nil {
+			storage.file = file
+			storage.writer = bufio.NewWriter(file)
+			storage.encoder = json.NewEncoder(storage.writer)
+		}
+	}
+
+	if storeInterval > 0 && filePath != "" {
+		go storage.periodicSave()
+	}
+
+	return storage
+}
+
+func (s *MtrStorage) SaveToFile() error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.filePath == "" {
+		return nil
+	}
+
+	tmpFile, err := os.CreateTemp("", "metrics_*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	writer := bufio.NewWriter(tmpFile)
+	encoder := json.NewEncoder(writer)
+	encoder.SetIndent("", "  ")
+
+	metrics := make([]models.Metrics, 0, len(s.mtr))
+	for key, metric := range s.mtr {
+		metricCopy := metric
+		metricCopy.ID = key
+		metrics = append(metrics, metricCopy)
+	}
+
+	if err := encoder.Encode(metrics); err != nil {
+		return err
+	}
+
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tmpFile.Name(), s.filePath)
+}
+
+func (s *MtrStorage) LoadFromFile() error {
+	if s.filePath == "" {
+		return nil
+	}
+
+	file, err := os.Open(s.filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	var metrics []models.Metrics
+	if err := decoder.Decode(&metrics); err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, metric := range metrics {
+		s.mtr[metric.ID] = metric
+	}
+
+	return nil
+}
+
+func (s *MtrStorage) periodicSave() {
+	ticker := time.NewTicker(time.Duration(s.storeInterval))
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := s.SaveToFile(); err != nil {
+				fmt.Printf("Failed to save metrics: %v\n", err)
+			}
+		case <-s.saveChan:
+			return
+		}
+	}
+}
+
+func (s *MtrStorage) Close() {
+	close(s.saveChan)
+	if err := s.SaveToFile(); err != nil {
+		fmt.Printf("Final save failed: %v\n", err)
+	}
+}
+
+func (s *MtrStorage) SaveByEvent() {
+
+	if s.storeInterval == 0 && s.filePath != "" {
+		go func() {
+			if err := s.SaveToFile(); err != nil {
+				fmt.Printf("Sync save failed: %v\n", err)
+			}
+		}()
 	}
 }
 
@@ -26,6 +167,8 @@ func (s *MtrStorage) SetVal(key string, mtr models.Metrics) {
 		s.mtr = make(map[string]models.Metrics)
 	}
 	s.mtr[key] = mtr
+
+	s.SaveByEvent()
 }
 
 func (s *MtrStorage) AddVal(key string, mtr models.Metrics) {
@@ -36,6 +179,8 @@ func (s *MtrStorage) AddVal(key string, mtr models.Metrics) {
 		*mtr.Delta += *val.Delta
 	}
 	s.mtr[key] = mtr
+
+	s.SaveByEvent()
 }
 
 func (s *MtrStorage) GetVal(key string) models.Metrics {
