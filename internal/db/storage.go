@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"sync"
 	"time"
 
 	models "github.com/Valentin-Makurin/metrics/internal/model"
+	"go.uber.org/zap"
 )
 
 type MtrStorage struct {
@@ -23,37 +23,43 @@ type MtrStorage struct {
 	storeInterval int
 	restore       bool
 	saveChan      chan struct{}
+	logger        *zap.SugaredLogger
 }
 
-func NewStorage(filePath string, storeInterval int, restore bool) *MtrStorage {
+func NewStorage(filePath string, storeInterval int, restore bool, logger *zap.SugaredLogger) *MtrStorage {
 	storage := &MtrStorage{
 		mtr:           make(map[string]models.Metrics),
 		filePath:      filePath,
 		storeInterval: storeInterval,
 		restore:       restore,
 		saveChan:      make(chan struct{}, 1),
-	}
-
-	if restore && filePath != "" {
-		if err := storage.LoadFromFile(); err != nil {
-			log.Printf("Failed to load metrics from file: %v", err)
-		}
-	}
-
-	if filePath != "" {
-		file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
-		if err == nil {
-			storage.file = file
-			storage.writer = bufio.NewWriter(file)
-			storage.encoder = json.NewEncoder(storage.writer)
-		}
-	}
-
-	if storeInterval > 0 && filePath != "" {
-		go storage.periodicSave()
+		logger:        logger,
 	}
 
 	return storage
+}
+
+func (s *MtrStorage) PrepareFile() {
+	if s.restore && s.filePath != "" {
+		if err := s.LoadFromFile(); err != nil {
+			s.logger.Error("Failed to load metrics from file: %v", err)
+		}
+	}
+
+	if s.filePath != "" {
+		file, err := os.OpenFile(s.filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+		if err == nil {
+			s.file = file
+			s.writer = bufio.NewWriter(file)
+			s.encoder = json.NewEncoder(s.writer)
+		}
+	}
+}
+
+func (s *MtrStorage) StartTicker() {
+	if s.storeInterval > 0 && s.filePath != "" {
+		go s.periodicSave()
+	}
 }
 
 func (s *MtrStorage) SaveToFile() error {
@@ -134,7 +140,7 @@ func (s *MtrStorage) periodicSave() {
 		select {
 		case <-ticker.C:
 			if err := s.SaveToFile(); err != nil {
-				fmt.Printf("Failed to save metrics: %v\n", err)
+				s.logger.Error("Failed to save metrics: %v\n", err)
 			}
 		case <-s.saveChan:
 			return
@@ -145,14 +151,14 @@ func (s *MtrStorage) periodicSave() {
 func (s *MtrStorage) Close() {
 	close(s.saveChan)
 	if err := s.SaveToFile(); err != nil {
-		fmt.Printf("Final save failed: %v\n", err)
+		s.logger.Error("Final save failed: %v\n", err)
 	}
 }
 
 func (s *MtrStorage) SaveByEvent() {
 	if s.storeInterval == 0 && s.filePath != "" {
 		if err := s.SaveToFile(); err != nil {
-			fmt.Printf("Sync save failed: %v\n", err)
+			s.logger.Error("Sync save failed: %v\n", err)
 		}
 	}
 }

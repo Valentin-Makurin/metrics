@@ -22,7 +22,6 @@ var (
 )
 
 func main() {
-
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
@@ -32,7 +31,9 @@ func main() {
 
 	initFlags(sugar)
 
-	storage := db.NewStorage(flagFilePath, flagStoreInterval, flagRestore)
+	storage := db.NewStorage(flagFilePath, flagStoreInterval, flagRestore, sugar)
+	storage.PrepareFile()
+	storage.StartTicker()
 	mtrHandler := handler.NewMtrHandler(storage, sugar)
 
 	r := chi.NewRouter()

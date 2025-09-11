@@ -14,13 +14,13 @@ import (
 )
 
 func TestHandlePost_MethodNotAllowed(t *testing.T) {
-	storage := db.NewStorage("test", 0, false)
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
 	}
 	defer logger.Sync()
 	sugar := logger.Sugar()
+	storage := db.NewStorage("test", 0, false, sugar)
 	handler := NewMtrHandler(storage, sugar)
 
 	tests := []string{http.MethodGet, http.MethodPut, http.MethodDelete}
@@ -37,13 +37,13 @@ func TestHandlePost_MethodNotAllowed(t *testing.T) {
 }
 
 func TestHandlePost_InvalidPath(t *testing.T) {
-	storage := db.NewStorage("test", 0, false)
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
 	}
 	defer logger.Sync()
 	sugar := logger.Sugar()
+	storage := db.NewStorage("test", 0, false, sugar)
 	handler := NewMtrHandler(storage, sugar)
 
 	testCases := []struct {
@@ -72,13 +72,13 @@ func TestHandlePost_InvalidPath(t *testing.T) {
 }
 
 func TestHandlePost_EmptyMetricName(t *testing.T) {
-	storage := db.NewStorage("test", 0, false)
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
 	}
 	defer logger.Sync()
 	sugar := logger.Sugar()
+	storage := db.NewStorage("test", 0, false, sugar)
 	handler := NewMtrHandler(storage, sugar)
 
 	req := httptest.NewRequest(http.MethodPost, "/update/gauge//123", nil)
@@ -93,13 +93,13 @@ func TestHandlePost_EmptyMetricName(t *testing.T) {
 }
 
 func TestHandlePost_InvalidMetricType(t *testing.T) {
-	storage := db.NewStorage("test", 0, false)
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
 	}
 	defer logger.Sync()
 	sugar := logger.Sugar()
+	storage := db.NewStorage("test", 0, false, sugar)
 	handler := NewMtrHandler(storage, sugar)
 
 	req := httptest.NewRequest(http.MethodPost, "/update/invalid/test/123", nil)
@@ -114,13 +114,13 @@ func TestHandlePost_InvalidMetricType(t *testing.T) {
 }
 
 func TestHandlePost_InvalidGaugeValue(t *testing.T) {
-	storage := db.NewStorage("test", 0, false)
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
 	}
 	defer logger.Sync()
 	sugar := logger.Sugar()
+	storage := db.NewStorage("test", 0, false, sugar)
 	handler := NewMtrHandler(storage, sugar)
 
 	req := httptest.NewRequest(http.MethodPost, "/update/gauge/test/invalid", nil)
@@ -135,13 +135,13 @@ func TestHandlePost_InvalidGaugeValue(t *testing.T) {
 }
 
 func TestHandlePost_InvalidCounterValue(t *testing.T) {
-	storage := db.NewStorage("test", 0, false)
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)
 	}
 	defer logger.Sync()
 	sugar := logger.Sugar()
+	storage := db.NewStorage("test", 0, false, sugar)
 	handler := NewMtrHandler(storage, sugar)
 
 	req := httptest.NewRequest(http.MethodPost, "/update/counter/test/invalid", nil)
