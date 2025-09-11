@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
 	models "github.com/Valentin-Makurin/metrics/internal/model"
+	"go.uber.org/zap"
 )
 
 type Storage interface {
@@ -20,11 +20,13 @@ type Storage interface {
 }
 type MtrHandler struct {
 	storage Storage
+	logger  *zap.SugaredLogger
 }
 
-func NewMtrHandler(stor Storage) *MtrHandler {
+func NewMtrHandler(stor Storage, logger *zap.SugaredLogger) *MtrHandler {
 	return &MtrHandler{
 		storage: stor,
+		logger:  logger,
 	}
 }
 
@@ -161,7 +163,7 @@ func (h *MtrHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err := w.Write([]byte(valStr))
 	if err != nil {
-		log.Printf("Failed to write response")
+		h.logger.Error("Failed to write response", err)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -203,7 +205,7 @@ func (h *MtrHandler) HandleGetValue(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewEncoder(w).Encode(metric); err != nil {
-		log.Printf("Error encoding JSON response: %v", err)
+		h.logger.Error("Error encoding JSON response", err)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -214,7 +216,7 @@ func (h *MtrHandler) HandleRoot(w http.ResponseWriter, r *http.Request) {
 	metrics := h.storage.GetAllVal()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	_, _ = w.Write([]byte(`
+	_, err := w.Write([]byte(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -237,15 +239,26 @@ func (h *MtrHandler) HandleRoot(w http.ResponseWriter, r *http.Request) {
                 </thead>
                 <tbody>
     `))
-
-	for name, value := range metrics {
-		_, _ = fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td></tr>", html.EscapeString(name), html.EscapeString(value))
+	if err != nil {
+		h.logger.Error("Filed to write html top", err)
 	}
 
-	_, _ = w.Write([]byte(`
+	for name, value := range metrics {
+		_, err = fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td></tr>", html.EscapeString(name), html.EscapeString(value))
+		if err != nil {
+			h.logger.Error("Filed to write html body", err)
+		}
+
+	}
+
+	_, err = w.Write([]byte(`
                 </tbody>
             </table>
         </body>
         </html>
     `))
+	if err != nil {
+		h.logger.Error("Filed to write html footer", err)
+	}
+
 }

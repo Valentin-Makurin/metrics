@@ -150,13 +150,10 @@ func (s *MtrStorage) Close() {
 }
 
 func (s *MtrStorage) SaveByEvent() {
-
 	if s.storeInterval == 0 && s.filePath != "" {
-		go func() {
-			if err := s.SaveToFile(); err != nil {
-				fmt.Printf("Sync save failed: %v\n", err)
-			}
-		}()
+		if err := s.SaveToFile(); err != nil {
+			fmt.Printf("Sync save failed: %v\n", err)
+		}
 	}
 }
 

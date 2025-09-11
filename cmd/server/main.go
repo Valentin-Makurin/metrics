@@ -22,7 +22,6 @@ var (
 )
 
 func main() {
-	initFlags()
 
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -31,8 +30,10 @@ func main() {
 	defer logger.Sync()
 	sugar := logger.Sugar()
 
+	initFlags(sugar)
+
 	storage := db.NewStorage(flagFilePath, flagStoreInterval, flagRestore)
-	mtrHandler := handler.NewMtrHandler(storage)
+	mtrHandler := handler.NewMtrHandler(storage, sugar)
 
 	r := chi.NewRouter()
 	r.Use(middleware.LoggerMiddleware(sugar))
@@ -50,13 +51,14 @@ func main() {
 	}
 }
 
-func initFlags() {
+func initFlags(logger *zap.SugaredLogger) {
 	defaultFilePath := "/tmp/metrics.json"
 
 	envAddr := os.Getenv("ADDRESS")
 	envInterval := os.Getenv("STORE_INTERVAL")
 	envFilePath := os.Getenv("FILE_STORAGE_PATH")
 	envRestore := os.Getenv("RESTORE")
+	var err error
 
 	if envAddr == "" {
 		flag.StringVar(&flagRunAddr, "a", ":8080", "address and port to run server")
@@ -67,7 +69,10 @@ func initFlags() {
 	if envInterval == "" {
 		flag.IntVar(&flagStoreInterval, "i", 300, "interval to save metrics")
 	} else {
-		flagStoreInterval, _ = strconv.Atoi(envInterval)
+		flagStoreInterval, err = strconv.Atoi(envInterval)
+		if err != nil {
+			logger.Error("Filed to convert string to int, envInterval", err)
+		}
 	}
 
 	if envFilePath == "" {
@@ -79,7 +84,10 @@ func initFlags() {
 	if envRestore == "" {
 		flag.BoolVar(&flagRestore, "r", true, "restore metrics from file on startup")
 	} else {
-		flagRestore, _ = strconv.ParseBool(envRestore)
+		flagRestore, err = strconv.ParseBool(envRestore)
+		if err != nil {
+			logger.Error("Filed to convert string to bool, envRestore", err)
+		}
 	}
 
 	flag.Parse()
