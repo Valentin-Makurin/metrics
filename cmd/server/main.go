@@ -19,6 +19,7 @@ var (
 	flagStoreInterval int
 	flagFilePath      string
 	flagRestore       bool
+	flagDBConnStr     string
 )
 
 func main() {
@@ -31,10 +32,16 @@ func main() {
 
 	initFlags(sugar)
 
+	dbConn, err := db.NewDatabase(flagDBConnStr)
+	if err != nil {
+		log.Fatalf("Ошибка подключения к БД: %v", err)
+	}
+	defer dbConn.Close()
+
 	storage := db.NewStorage(flagFilePath, flagStoreInterval, flagRestore, sugar)
 	storage.PrepareFile()
 	storage.StartTicker()
-	mtrHandler := handler.NewMtrHandler(storage, sugar)
+	mtrHandler := handler.NewMtrHandler(storage, sugar, dbConn)
 
 	r := chi.NewRouter()
 	r.Use(middleware.LoggerMiddleware(sugar))
@@ -44,6 +51,7 @@ func main() {
 	r.Get("/value/{metricType}/{metricName}", mtrHandler.HandleGet)
 	r.Post("/value/", mtrHandler.HandleGetValue)
 	r.Get("/", mtrHandler.HandleRoot)
+	r.Get("/ping", mtrHandler.HandlePing)
 
 	log.Println("Running server on", flagRunAddr)
 	err = http.ListenAndServe(flagRunAddr, r)
@@ -59,6 +67,7 @@ func initFlags(logger *zap.SugaredLogger) {
 	envInterval := os.Getenv("STORE_INTERVAL")
 	envFilePath := os.Getenv("FILE_STORAGE_PATH")
 	envRestore := os.Getenv("RESTORE")
+	envConnStr := os.Getenv("DATABASE_DSN")
 	var err error
 
 	if envAddr == "" {
@@ -91,5 +100,10 @@ func initFlags(logger *zap.SugaredLogger) {
 		}
 	}
 
+	if envConnStr == "" {
+		flag.StringVar(&flagDBConnStr, "d", "", "postgress connection string")
+	} else {
+		flagDBConnStr = envConnStr
+	}
 	flag.Parse()
 }

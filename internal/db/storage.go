@@ -10,6 +10,7 @@ import (
 	"time"
 
 	models "github.com/Valentin-Makurin/metrics/internal/model"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
@@ -24,6 +25,7 @@ type MtrStorage struct {
 	restore       bool
 	saveChan      chan struct{}
 	logger        *zap.SugaredLogger
+	pool          *pgxpool.Pool
 }
 
 func NewStorage(filePath string, storeInterval int, restore bool, logger *zap.SugaredLogger) *MtrStorage {

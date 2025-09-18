@@ -21,7 +21,7 @@ func TestHandlePost_MethodNotAllowed(t *testing.T) {
 	defer logger.Sync()
 	sugar := logger.Sugar()
 	storage := db.NewStorage("test", 0, false, sugar)
-	handler := NewMtrHandler(storage, sugar)
+	handler := NewMtrHandler(storage, sugar, &db.Database{})
 
 	tests := []string{http.MethodGet, http.MethodPut, http.MethodDelete}
 	for _, method := range tests {
@@ -44,7 +44,7 @@ func TestHandlePost_InvalidPath(t *testing.T) {
 	defer logger.Sync()
 	sugar := logger.Sugar()
 	storage := db.NewStorage("test", 0, false, sugar)
-	handler := NewMtrHandler(storage, sugar)
+	handler := NewMtrHandler(storage, sugar, &db.Database{})
 
 	testCases := []struct {
 		path       string
@@ -79,7 +79,7 @@ func TestHandlePost_EmptyMetricName(t *testing.T) {
 	defer logger.Sync()
 	sugar := logger.Sugar()
 	storage := db.NewStorage("test", 0, false, sugar)
-	handler := NewMtrHandler(storage, sugar)
+	handler := NewMtrHandler(storage, sugar, &db.Database{})
 
 	req := httptest.NewRequest(http.MethodPost, "/update/gauge//123", nil)
 	req.Header.Set("Content-Type", "text/plain")
@@ -100,7 +100,7 @@ func TestHandlePost_InvalidMetricType(t *testing.T) {
 	defer logger.Sync()
 	sugar := logger.Sugar()
 	storage := db.NewStorage("test", 0, false, sugar)
-	handler := NewMtrHandler(storage, sugar)
+	handler := NewMtrHandler(storage, sugar, &db.Database{})
 
 	req := httptest.NewRequest(http.MethodPost, "/update/invalid/test/123", nil)
 	req.Header.Set("Content-Type", "text/plain")
@@ -121,7 +121,7 @@ func TestHandlePost_InvalidGaugeValue(t *testing.T) {
 	defer logger.Sync()
 	sugar := logger.Sugar()
 	storage := db.NewStorage("test", 0, false, sugar)
-	handler := NewMtrHandler(storage, sugar)
+	handler := NewMtrHandler(storage, sugar, &db.Database{})
 
 	req := httptest.NewRequest(http.MethodPost, "/update/gauge/test/invalid", nil)
 	req.Header.Set("Content-Type", "text/plain")
@@ -142,7 +142,7 @@ func TestHandlePost_InvalidCounterValue(t *testing.T) {
 	defer logger.Sync()
 	sugar := logger.Sugar()
 	storage := db.NewStorage("test", 0, false, sugar)
-	handler := NewMtrHandler(storage, sugar)
+	handler := NewMtrHandler(storage, sugar, &db.Database{})
 
 	req := httptest.NewRequest(http.MethodPost, "/update/counter/test/invalid", nil)
 	req.Header.Set("Content-Type", "text/plain")
@@ -162,7 +162,7 @@ func TestHandleGet(t *testing.T) {
 	}
 	defer logger.Sync()
 	sugar := logger.Sugar()
-	handler := NewMtrHandler(storage, sugar)
+	handler := NewMtrHandler(storage, sugar, &db.Database{})
 
 	gaugeValue := 123.456
 	counterValue := int64(42)
@@ -236,7 +236,7 @@ func TestHandleRoot(t *testing.T) {
 	defer logger.Sync()
 	sugar := logger.Sugar()
 
-	handler := NewMtrHandler(storage, sugar)
+	handler := NewMtrHandler(storage, sugar, &db.Database{})
 
 	gaugeValue := 123.45
 	counterValue := int64(42)
