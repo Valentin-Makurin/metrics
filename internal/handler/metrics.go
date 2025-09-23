@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Valentin-Makurin/metrics/internal/db"
 	models "github.com/Valentin-Makurin/metrics/internal/model"
 	"go.uber.org/zap"
 )
@@ -18,18 +17,17 @@ type Storage interface {
 	AddVal(key string, mtr models.Metrics)
 	GetVal(key string) models.Metrics
 	GetAllVal() map[string]string
+	Ping() error
 }
 type MtrHandler struct {
 	storage Storage
 	logger  *zap.SugaredLogger
-	dbConn  *db.Database
 }
 
-func NewMtrHandler(stor Storage, logger *zap.SugaredLogger, dbConn *db.Database) *MtrHandler {
+func NewMtrHandler(stor Storage, logger *zap.SugaredLogger) *MtrHandler {
 	return &MtrHandler{
 		storage: stor,
 		logger:  logger,
-		dbConn:  dbConn,
 	}
 }
 
@@ -267,7 +265,7 @@ func (h *MtrHandler) HandleRoot(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *MtrHandler) HandlePing(w http.ResponseWriter, r *http.Request) {
-	err := h.dbConn.Ping()
+	err := h.storage.Ping()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {

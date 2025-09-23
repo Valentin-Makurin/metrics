@@ -209,3 +209,7 @@ func (s *MtrStorage) GetAllVal() map[string]string {
 	}
 	return res
 }
+
+func (s *MtrStorage) Ping() error {
+	return nil
+}

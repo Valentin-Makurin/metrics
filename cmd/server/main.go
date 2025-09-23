@@ -32,26 +32,37 @@ func main() {
 
 	initFlags(sugar)
 
-	dbConn, err := db.NewDatabase(flagDBConnStr)
-	if err != nil {
-		log.Fatalf("Ошибка подключения к БД: %v", err)
-	}
-	defer dbConn.Close()
+	mtrHandler := &handler.MtrHandler{}
 
-	storage := db.NewStorage(flagFilePath, flagStoreInterval, flagRestore, sugar)
-	storage.PrepareFile()
-	storage.StartTicker()
-	mtrHandler := handler.NewMtrHandler(storage, sugar, dbConn)
+	if flagDBConnStr != "" {
+		dbConn, err := db.NewDatabase(flagDBConnStr, sugar)
+		if err != nil {
+			log.Fatalf("Ошибка подключения к БД: %v", err)
+		}
+		defer dbConn.Close()
+		err = dbConn.Ping()
+		if err != nil {
+			log.Fatalf("Ошибка пинга к БД: %v", err)
+		}
+		dbConn.RunMigrations()
+		mtrHandler = handler.NewMtrHandler(dbConn, sugar)
+	} else {
+		storage := db.NewStorage(flagFilePath, flagStoreInterval, flagRestore, sugar)
+		storage.PrepareFile()
+		storage.StartTicker()
+		mtrHandler = handler.NewMtrHandler(storage, sugar)
+	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.LoggerMiddleware(sugar))
 	r.Use(middleware.GzipMiddleware)
 	r.Post("/update/{metricType}/{metricName}/{value}", mtrHandler.HandlePost)
-	r.Post("/update/", mtrHandler.HandlePostUpdate)
 	r.Get("/value/{metricType}/{metricName}", mtrHandler.HandleGet)
+
+	r.Get("/ping", mtrHandler.HandlePing)
+	r.Post("/update/", mtrHandler.HandlePostUpdate)
 	r.Post("/value/", mtrHandler.HandleGetValue)
 	r.Get("/", mtrHandler.HandleRoot)
-	r.Get("/ping", mtrHandler.HandlePing)
 
 	log.Println("Running server on", flagRunAddr)
 	err = http.ListenAndServe(flagRunAddr, r)
