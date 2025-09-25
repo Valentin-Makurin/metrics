@@ -73,49 +73,53 @@ func main() {
 }
 
 func initFlags(logger *zap.SugaredLogger) {
-	defaultFilePath := "/tmp/metrics.json"
 
-	envAddr := os.Getenv("ADDRESS")
-	envInterval := os.Getenv("STORE_INTERVAL")
-	envFilePath := os.Getenv("FILE_STORAGE_PATH")
-	envRestore := os.Getenv("RESTORE")
-	envConnStr := os.Getenv("DATABASE_DSN")
-	var err error
+	addrTmp := flag.String("a", "localhost:8080", "address and port to run server")
+	storeIntervalTmp := flag.Int("i", 2, "interval to save metrics")
+	filePathTmp := flag.String("f", "/tmp/metrics.json", "path to storage file")
+	restoreTmp := flag.Bool("r", true, "restore metrics from file on startup")
+	connStrTmp := flag.String("d", "", "postgress connection string")
+	flag.Parse()
 
-	if envAddr == "" {
-		flag.StringVar(&flagRunAddr, "a", ":8080", "address and port to run server")
-	} else {
-		flagRunAddr = envAddr
+	varAdrHost, ok := os.LookupEnv("ADDRESS")
+	if ok {
+		addrTmp = &varAdrHost
 	}
-
-	if envInterval == "" {
-		flag.IntVar(&flagStoreInterval, "i", 300, "interval to save metrics")
-	} else {
-		flagStoreInterval, err = strconv.Atoi(envInterval)
+	varStoreInterval, ok := os.LookupEnv("STORE_INTERVAL")
+	if ok {
+		intStoreInterval, err := strconv.Atoi(varStoreInterval)
 		if err != nil {
 			logger.Error("Filed to convert string to int, envInterval", err)
 		}
+		storeIntervalTmp = &intStoreInterval
 	}
-
-	if envFilePath == "" {
-		flag.StringVar(&flagFilePath, "f", defaultFilePath, "path to storage file")
-	} else {
-		flagFilePath = envFilePath
+	varFileStoragePath, ok := os.LookupEnv("FILE_STORAGE_PATH")
+	if ok {
+		filePathTmp = &varFileStoragePath
 	}
-
-	if envRestore == "" {
-		flag.BoolVar(&flagRestore, "r", true, "restore metrics from file on startup")
-	} else {
-		flagRestore, err = strconv.ParseBool(envRestore)
+	varRestore, ok := os.LookupEnv("RESTORE")
+	if ok {
+		boolVarRestore, err := strconv.ParseBool(varRestore)
 		if err != nil {
 			logger.Error("Filed to convert string to bool, envRestore", err)
 		}
+		restoreTmp = &boolVarRestore
+	}
+	varDatabaseDSN, ok := os.LookupEnv("DATABASE_DSN")
+	if ok {
+		connStrTmp = &varDatabaseDSN
 	}
 
-	if envConnStr == "" {
-		flag.StringVar(&flagDBConnStr, "d", "", "postgress connection string")
-	} else {
-		flagDBConnStr = envConnStr
-	}
-	flag.Parse()
+	flagRunAddr = *addrTmp
+	flagStoreInterval = *storeIntervalTmp
+	flagFilePath = *filePathTmp
+	flagRestore = *restoreTmp
+	flagDBConnStr = *connStrTmp
+
+	log.Println("envAddr", flagRunAddr)
+	log.Println("envInterval", flagStoreInterval)
+	log.Println("envFilePath", flagFilePath)
+	log.Println("envRestore", flagRestore)
+	log.Println("envConnStr", flagDBConnStr)
+
 }
