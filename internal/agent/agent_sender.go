@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -28,17 +29,17 @@ func NewHTTPSender(baseURL string) *HTTPSender {
 }
 
 func (s *HTTPSender) Send(gauges map[string]any, counters map[string]uint) error {
-	// for key, val := range gauges {
-	// 	if err := s.sendGaugeMetric(key, val); err != nil {
-	// 		log.Println("post Gauge error", err, "key", key, "val", val)
-	// 	}
-	// }
+	for key, val := range gauges {
+		if err := s.sendGaugeMetric(key, val); err != nil {
+			log.Println("post Gauge error", err, "key", key, "val", val)
+		}
+	}
 
-	// for key, val := range counters {
-	// 	if err := s.sendCounterMetric(key, val); err != nil {
-	// 		log.Println("post Counter error", err, "key", key, "val", val)
-	// 	}
-	// }
+	for key, val := range counters {
+		if err := s.sendCounterMetric(key, val); err != nil {
+			log.Println("post Counter error", err, "key", key, "val", val)
+		}
+	}
 
 	mtrs, err := s.prepareMtrData(gauges, counters)
 	if err != nil {
