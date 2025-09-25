@@ -18,6 +18,7 @@ type Storage interface {
 	GetVal(key string) models.Metrics
 	GetAllVal() map[string]string
 	Ping() error
+	UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]models.Metrics) error
 }
 type MtrHandler struct {
 	storage Storage
@@ -119,6 +120,88 @@ func (h *MtrHandler) HandlePostUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.storage.AddVal(metric.ID, metric)
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *MtrHandler) HandlePostUpdates(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var rawMetrics []models.Metrics
+	var validMetricsGauge []models.Metrics
+	validMetricsCounter := make(map[string]models.Metrics)
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&rawMetrics); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	for _, val := range rawMetrics {
+		if val.ID == "" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		if !TypeCheck(val.MType) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		switch val.MType {
+		case models.Gauge:
+			if val.Value == nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			// h.storage.SetVal(metric.ID, metric)
+			validMetricsGauge = append(validMetricsGauge, val)
+
+		case models.Counter:
+			if val.Delta == nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			mtr, ok := validMetricsCounter[val.ID]
+			if ok {
+				*val.Delta += *mtr.Delta
+			}
+			validMetricsCounter[val.ID] = val
+			// h.storage.AddVal(metric.ID, metric)
+		}
+
+		// validMetrics = append(validMetrics, val)
+	}
+
+	// switch metric.MType {
+	// case models.Gauge:
+	// 	if metric.Value == nil {
+	// 		w.WriteHeader(http.StatusBadRequest)
+	// 		return
+	// 	}
+	// 	h.storage.SetVal(metric.ID, metric)
+
+	// case models.Counter:
+	// 	if metric.Delta == nil {
+	// 		w.WriteHeader(http.StatusBadRequest)
+	// 		return
+	// 	}
+	// 	h.storage.AddVal(metric.ID, metric)
+	// }
+
+	err := h.storage.UpsertBatch(validMetricsGauge, validMetricsCounter)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)

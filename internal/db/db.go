@@ -113,3 +113,36 @@ func (db *Database) RunMigrations() error {
 	}
 	return nil
 }
+
+func (db *Database) UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]models.Metrics) error {
+	ctx := context.Background()
+	tx, err := db.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	for _, val := range GaugeMtr {
+		_, err = tx.Exec(context.Background(), models.Upsert, &val.ID, &val.MType, val.Delta, val.Value)
+		if err != nil {
+			db.log.Error("Failed to run upsert: %v", err)
+		}
+	}
+
+	for _, val := range CntMtr {
+		var deltaOld int64
+		err := db.pool.QueryRow(context.Background(), models.SelectDelta, &val.ID, &val.MType).Scan(&deltaOld)
+		if err != nil {
+			db.log.Error("Failed to run select delsta: %v", err)
+		}
+		if deltaOld != 0 {
+			*val.Delta += deltaOld
+		}
+		_, err = db.pool.Exec(context.Background(), models.Upsert, &val.ID, &val.MType, val.Delta, val.Value)
+		if err != nil {
+			db.log.Error("Failed to run upsert: %v", err)
+		}
+	}
+
+	tx.Commit(ctx)
+	return nil
+}

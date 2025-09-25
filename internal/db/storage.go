@@ -213,3 +213,6 @@ func (s *MtrStorage) GetAllVal() map[string]string {
 func (s *MtrStorage) Ping() error {
 	return nil
 }
+func (s *MtrStorage) UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]models.Metrics) error {
+	return nil
+}

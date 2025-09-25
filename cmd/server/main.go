@@ -61,6 +61,7 @@ func main() {
 
 	r.Get("/ping", mtrHandler.HandlePing)
 	r.Post("/update/", mtrHandler.HandlePostUpdate)
+	r.Post("/updates/", mtrHandler.HandlePostUpdates)
 	r.Post("/value/", mtrHandler.HandleGetValue)
 	r.Get("/", mtrHandler.HandleRoot)
 
