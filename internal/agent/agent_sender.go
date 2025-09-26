@@ -118,9 +118,13 @@ func (s *HTTPSender) sendJSONRequest(metric models.Metrics) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
-	resp, err := s.runReq(req)
+	// resp, err := s.runReq(req)
+	// if err != nil {
+	// 	return err
+	// }
+	resp, err := s.client.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("send request error: %w", err)
 	}
 	defer resp.Body.Close()
 	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
@@ -166,6 +170,10 @@ func (s *HTTPSender) sendJSONRequestBatch(metric any) error {
 	if err != nil {
 		return err
 	}
+	// resp, err := s.client.Do(req)
+	// if err != nil {
+	// 	return fmt.Errorf("send request error: %w", err)
+	// }
 	defer resp.Body.Close()
 	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
 		fmt.Print("gzip ok ")
