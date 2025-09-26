@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/Valentin-Makurin/metrics/internal/db"
 	"github.com/Valentin-Makurin/metrics/internal/handler"
@@ -40,10 +41,26 @@ func main() {
 			log.Fatalf("Ошибка подключения к БД: %v", err)
 		}
 		defer dbConn.Close()
-		err = dbConn.Ping()
-		if err != nil {
+
+		flag := false
+		interval := map[int]time.Duration{0: 1 * time.Second, 1: 3 * time.Second, 2: 5 * time.Second}
+		for i := range 3 {
+			err = dbConn.Ping()
+			if err == nil {
+				flag = true
+				break
+			}
+			if db.IsTemporaryError(err) {
+				tm := interval[i]
+				time.Sleep(tm)
+			} else {
+				log.Fatalf("failed attempt error: %v", err)
+			}
+		}
+		if !flag {
 			log.Fatalf("Ошибка пинга к БД: %v", err)
 		}
+
 		dbConn.RunMigrations()
 		mtrHandler = handler.NewMtrHandler(dbConn, sugar)
 	} else {

@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
+	"syscall"
+	"time"
 
 	models "github.com/Valentin-Makurin/metrics/internal/model"
 )
@@ -115,10 +118,9 @@ func (s *HTTPSender) sendJSONRequest(metric models.Metrics) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
-
-	resp, err := s.client.Do(req)
+	resp, err := s.runReq(req)
 	if err != nil {
-		return fmt.Errorf("send request error: %w", err)
+		return err
 	}
 	defer resp.Body.Close()
 	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
@@ -160,10 +162,9 @@ func (s *HTTPSender) sendJSONRequestBatch(metric any) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
-
-	resp, err := s.client.Do(req)
+	resp, err := s.runReq(req)
 	if err != nil {
-		return fmt.Errorf("send request error: %w", err)
+		return err
 	}
 	defer resp.Body.Close()
 	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
@@ -175,6 +176,31 @@ func (s *HTTPSender) sendJSONRequestBatch(metric any) error {
 	}
 
 	return nil
+}
+
+func (s *HTTPSender) runReq(req *http.Request) (*http.Response, error) {
+	flag := false
+	var resp *http.Response
+	var err error
+	interval := map[int]time.Duration{0: 1 * time.Second, 1: 3 * time.Second, 2: 5 * time.Second}
+
+	for i := range 3 {
+		resp, err = s.client.Do(req)
+		if err == nil {
+			flag = true
+			break
+		}
+		if isTemporaryError(err) {
+			tm := interval[i]
+			time.Sleep(tm)
+		} else {
+			return nil, fmt.Errorf("send request error: %w", err)
+		}
+	}
+	if !flag {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	return resp, nil
 }
 
 func (s *HTTPSender) prepareMtrData(gauges map[string]any, counters map[string]uint) ([]models.Metrics, error) {
@@ -214,4 +240,25 @@ func (s *HTTPSender) prepareMtrData(gauges map[string]any, counters map[string]u
 	}
 
 	return res, nil
+}
+
+func isTemporaryError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var syscallErr syscall.Errno
+	if errors.As(err, &syscallErr) {
+		switch syscallErr {
+		case syscall.ECONNREFUSED, // Connection refused
+			syscall.ECONNRESET,   // Connection reset by peer
+			syscall.ETIMEDOUT,    // Connection timed out
+			syscall.EHOSTDOWN,    // Host is down
+			syscall.EHOSTUNREACH, // Host is unreachable
+			syscall.ENETDOWN,     // Network is down
+			syscall.ENETUNREACH,  // Network is unreachable
+			syscall.EWOULDBLOCK:  // Operation would block
+			return true
+		}
+	}
+	return false
 }

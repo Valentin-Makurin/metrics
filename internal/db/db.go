@@ -2,10 +2,13 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
 	models "github.com/Valentin-Makurin/metrics/internal/model"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
@@ -145,4 +148,38 @@ func (db *Database) UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]mod
 
 	tx.Commit(ctx)
 	return nil
+}
+
+func IsTemporaryError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		if len(pgErr.Code) >= 2 && pgErr.Code[:2] == "08" {
+			return true
+		}
+	}
+
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case pgerrcode.ConnectionException,
+			pgerrcode.ConnectionDoesNotExist,
+			pgerrcode.ConnectionFailure,
+			pgerrcode.SQLClientUnableToEstablishSQLConnection,
+			pgerrcode.SQLServerRejectedEstablishmentOfSQLConnection,
+			pgerrcode.TransactionResolutionUnknown,
+			pgerrcode.SerializationFailure,
+			pgerrcode.DeadlockDetected,
+			pgerrcode.InsufficientResources,
+			pgerrcode.DiskFull,
+			pgerrcode.OutOfMemory,
+			pgerrcode.TooManyConnections,
+			pgerrcode.QueryCanceled:
+			return true
+		}
+	}
+
+	return false
 }
