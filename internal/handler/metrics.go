@@ -12,13 +12,34 @@ import (
 	"go.uber.org/zap"
 )
 
-type Storage interface {
+// type Storage interface {
+// 	SetVal(key string, mtr models.Metrics)
+// 	AddVal(key string, mtr models.Metrics)
+// 	GetVal(key string) models.Metrics
+// 	GetAllVal() map[string]string
+// 	Ping() error
+// 	UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]models.Metrics) error
+// }
+
+type MetricRepository interface {
 	SetVal(key string, mtr models.Metrics)
 	AddVal(key string, mtr models.Metrics)
 	GetVal(key string) models.Metrics
 	GetAllVal() map[string]string
-	Ping() error
+}
+
+type BatchRepository interface {
 	UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]models.Metrics) error
+}
+
+type HealthChecker interface {
+	Ping() error
+}
+
+type Storage interface {
+	MetricRepository
+	BatchRepository
+	HealthChecker
 }
 type MtrHandler struct {
 	storage Storage
@@ -248,6 +269,8 @@ func (h *MtrHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	_, err := w.Write([]byte(valStr))
 	if err != nil {
 		h.logger.Error("Failed to write response", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -325,6 +348,8 @@ func (h *MtrHandler) HandleRoot(w http.ResponseWriter, r *http.Request) {
     `))
 	if err != nil {
 		h.logger.Error("Filed to write html top", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	for name, value := range metrics {
@@ -343,6 +368,8 @@ func (h *MtrHandler) HandleRoot(w http.ResponseWriter, r *http.Request) {
     `))
 	if err != nil {
 		h.logger.Error("Filed to write html footer", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 }

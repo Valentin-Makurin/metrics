@@ -118,4 +118,8 @@ func (a *agent) postMtr() {
 	if err != nil {
 		log.Printf("Failed to Send metrics")
 	}
+	err = a.sender.SendBatch(a.storage.GetAllGauges(), a.storage.GetAllCounters())
+	if err != nil {
+		log.Printf("Failed to Send metrics")
+	}
 }

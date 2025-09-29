@@ -10,13 +10,14 @@ import (
 	"net/http"
 	"strings"
 	"syscall"
-	"time"
 
+	"github.com/Valentin-Makurin/metrics/internal/common"
 	models "github.com/Valentin-Makurin/metrics/internal/model"
 )
 
 type MetricsSender interface {
 	Send(gauges map[string]any, counters map[string]uint) error
+	SendBatch(gauges map[string]any, counters map[string]uint) error
 }
 
 type HTTPSender struct {
@@ -44,6 +45,17 @@ func (s *HTTPSender) Send(gauges map[string]any, counters map[string]uint) error
 		}
 	}
 
+	// mtrs, err := s.prepareMtrData(gauges, counters)
+	// if err != nil {
+	// 	return fmt.Errorf("failed prepare mtr data: %w", err)
+	// }
+
+	// s.sendJSONRequestBatch(mtrs)
+
+	return nil
+}
+
+func (s *HTTPSender) SendBatch(gauges map[string]any, counters map[string]uint) error {
 	mtrs, err := s.prepareMtrData(gauges, counters)
 	if err != nil {
 		return fmt.Errorf("failed prepare mtr data: %w", err)
@@ -187,28 +199,33 @@ func (s *HTTPSender) sendJSONRequestBatch(metric any) error {
 }
 
 func (s *HTTPSender) runReq(req *http.Request) (*http.Response, error) {
-	flag := false
-	var resp *http.Response
-	var err error
-	interval := map[int]time.Duration{0: 1 * time.Second, 1: 3 * time.Second, 2: 5 * time.Second}
 
-	for i := range 3 {
-		resp, err = s.client.Do(req)
-		if err == nil {
-			flag = true
-			break
-		}
-		if isTemporaryError(err) {
-			tm := interval[i]
-			time.Sleep(tm)
-		} else {
-			return nil, fmt.Errorf("send request error: %w", err)
-		}
-	}
-	if !flag {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	return resp, nil
+	return common.RetryOperation(func() (*http.Response, error) {
+		return s.client.Do(req)
+	},
+		isTemporaryError)
+	// flag := false
+	// var resp *http.Response
+	// var err error
+	// interval := map[int]time.Duration{0: 1 * time.Second, 1: 3 * time.Second, 2: 5 * time.Second}
+
+	// for i := range 3 {
+	// 	resp, err = s.client.Do(req)
+	// 	if err == nil {
+	// 		flag = true
+	// 		break
+	// 	}
+	// 	if isTemporaryError(err) {
+	// 		tm := interval[i]
+	// 		time.Sleep(tm)
+	// 	} else {
+	// 		return nil, fmt.Errorf("send request error: %w", err)
+	// 	}
+	// }
+	// if !flag {
+	// 	return nil, fmt.Errorf("failed to send request: %w", err)
+	// }
+	// return resp, nil
 }
 
 func (s *HTTPSender) prepareMtrData(gauges map[string]any, counters map[string]uint) ([]models.Metrics, error) {
