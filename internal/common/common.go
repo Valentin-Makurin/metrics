@@ -8,8 +8,6 @@ import (
 func RetryOperation[T any](
 	operation func() (T, error),
 	isTemporary func(error) bool,
-	// maxAttempts int,
-	// intervals []time.Duration,
 ) (T, error) {
 	var zero T
 	var lastErr error

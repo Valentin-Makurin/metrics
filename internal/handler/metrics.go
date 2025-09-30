@@ -12,15 +12,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// type Storage interface {
-// 	SetVal(key string, mtr models.Metrics)
-// 	AddVal(key string, mtr models.Metrics)
-// 	GetVal(key string) models.Metrics
-// 	GetAllVal() map[string]string
-// 	Ping() error
-// 	UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]models.Metrics) error
-// }
-
 type MetricRepository interface {
 	SetVal(key string, mtr models.Metrics)
 	AddVal(key string, mtr models.Metrics)
@@ -184,7 +175,7 @@ func (h *MtrHandler) HandlePostUpdates(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
-			// h.storage.SetVal(metric.ID, metric)
+
 			validMetricsGauge = append(validMetricsGauge, val)
 
 		case models.Counter:
@@ -197,27 +188,9 @@ func (h *MtrHandler) HandlePostUpdates(w http.ResponseWriter, r *http.Request) {
 				*val.Delta += *mtr.Delta
 			}
 			validMetricsCounter[val.ID] = val
-			// h.storage.AddVal(metric.ID, metric)
 		}
 
-		// validMetrics = append(validMetrics, val)
 	}
-
-	// switch metric.MType {
-	// case models.Gauge:
-	// 	if metric.Value == nil {
-	// 		w.WriteHeader(http.StatusBadRequest)
-	// 		return
-	// 	}
-	// 	h.storage.SetVal(metric.ID, metric)
-
-	// case models.Counter:
-	// 	if metric.Delta == nil {
-	// 		w.WriteHeader(http.StatusBadRequest)
-	// 		return
-	// 	}
-	// 	h.storage.AddVal(metric.ID, metric)
-	// }
 
 	err := h.storage.UpsertBatch(validMetricsGauge, validMetricsCounter)
 	if err != nil {

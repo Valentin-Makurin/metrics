@@ -29,7 +29,6 @@ func NewDatabase(connString string, logger *zap.SugaredLogger) (*Database, error
 	defer cancel()
 
 	pool, err := pgxpool.New(ctx, connString)
-	// pool, err := pgxpool.New(context.Background(), connString)
 	if err != nil {
 		return nil, fmt.Errorf("не удалось создать подключение: %w", err)
 	}
@@ -48,7 +47,6 @@ func (db *Database) Close() {
 func (db *Database) Ping() error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	// return db.pool.Ping(context.Background())
 	return db.pool.Ping(ctx)
 }
 
@@ -56,7 +54,6 @@ func (db *Database) SetVal(key string, mtr models.Metrics) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// res, err := db.pool.Exec(context.Background(), models.Upsert, &key, &mtr.MType, mtr.Delta, mtr.Value)
 	res, err := db.pool.Exec(ctx, models.Upsert, &key, &mtr.MType, mtr.Delta, mtr.Value)
 	if err != nil {
 		db.log.Error("Failed to run upsert: %v", err)
@@ -72,7 +69,6 @@ func (db *Database) AddVal(key string, mtr models.Metrics) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// err := db.pool.QueryRow(context.Background(), models.SelectDelta, &key, &mtr.MType).Scan(&deltaOld)
 	err := db.pool.QueryRow(ctx, models.SelectDelta, &key, &mtr.MType).Scan(&deltaOld)
 	if err != nil {
 		db.log.Error("Failed to run select delsta: %v", err)
@@ -89,7 +85,6 @@ func (db *Database) GetVal(key string) models.Metrics {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// err := db.pool.QueryRow(context.Background(), models.SelectRow, &key).Scan(&res.ID, &res.MType, &res.Delta, &res.Value)
 	err := db.pool.QueryRow(ctx, models.SelectRow, &key).Scan(&res.ID, &res.MType, &res.Delta, &res.Value)
 	if err != nil {
 		db.log.Error("Failed to run select row: %v", err)
@@ -102,7 +97,6 @@ func (db *Database) GetAllVal() map[string]string {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// rows, err := db.pool.Query(context.Background(), models.SelectAll)
 	rows, err := db.pool.Query(ctx, models.SelectAll)
 	if err != nil {
 		db.log.Error("Failed to run select all: %v", err)
@@ -140,7 +134,6 @@ func (db *Database) RunMigrations() error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// _, err := db.pool.Exec(context.Background(), models.Migration)
 	_, err := db.pool.Exec(ctx, models.Migration)
 	if err != nil {
 		db.log.Error("Failed to run migration: %v", err)
@@ -153,14 +146,12 @@ func (db *Database) UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]mod
 	ctx, cancel := context.WithTimeout(context.Background(), extraTimeout)
 	defer cancel()
 
-	// ctx := context.Background()
 	tx, err := db.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 	for _, val := range GaugeMtr {
-		// _, err = tx.Exec(context.Background(), models.Upsert, &val.ID, &val.MType, val.Delta, val.Value)
 		_, err = tx.Exec(ctx, models.Upsert, &val.ID, &val.MType, val.Delta, val.Value)
 		if err != nil {
 			db.log.Error("Failed to run upsert: %v", err)
@@ -169,7 +160,6 @@ func (db *Database) UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]mod
 
 	for _, val := range CntMtr {
 		var deltaOld int64
-		// err := db.pool.QueryRow(context.Background(), models.SelectDelta, &val.ID, &val.MType).Scan(&deltaOld)
 		err := db.pool.QueryRow(ctx, models.SelectDelta, &val.ID, &val.MType).Scan(&deltaOld)
 		if err != nil {
 			db.log.Error("Failed to run select delsta: %v", err)
@@ -177,7 +167,6 @@ func (db *Database) UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]mod
 		if deltaOld != 0 {
 			*val.Delta += deltaOld
 		}
-		// _, err = db.pool.Exec(context.Background(), models.Upsert, &val.ID, &val.MType, val.Delta, val.Value)
 		_, err = db.pool.Exec(ctx, models.Upsert, &val.ID, &val.MType, val.Delta, val.Value)
 		if err != nil {
 			db.log.Error("Failed to run upsert: %v", err)
