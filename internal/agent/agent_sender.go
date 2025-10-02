@@ -23,12 +23,14 @@ type MetricsSender interface {
 type HTTPSender struct {
 	client  *http.Client
 	baseURL string
+	KeyH    string
 }
 
-func NewHTTPSender(baseURL string) *HTTPSender {
+func NewHTTPSender(baseURL, KetH string) *HTTPSender {
 	return &HTTPSender{
 		client:  &http.Client{},
 		baseURL: baseURL,
+		KeyH:    KetH,
 	}
 }
 
@@ -118,6 +120,11 @@ func (s *HTTPSender) sendJSONRequest(metric models.Metrics) error {
 	req, err := http.NewRequest("POST", url, &compressedData)
 	if err != nil {
 		return fmt.Errorf("create request error: %w", err)
+	}
+
+	if s.KeyH != "" {
+		hashData := common.HashVal(s.KeyH, jsonData)
+		req.Header.Set("HashSHA256", hashData)
 	}
 
 	req.Header.Set("Content-Type", "application/json")

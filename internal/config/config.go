@@ -2,9 +2,11 @@ package config
 
 import (
 	"flag"
-	"go.uber.org/zap"
+	"log"
 	"os"
 	"strconv"
+
+	"go.uber.org/zap"
 )
 
 type Config struct {
@@ -14,25 +16,34 @@ type Config struct {
 	FilePath      string
 	Restore       bool
 	DBConnStr     string
+	KeyH          string
 }
 
-func ParseFlags(logger *zap.SugaredLogger) Config {
+type ConfigAgent struct {
+	HTTPAddr       string
+	PollInterval   int
+	ReportInterval int
+	KeyH           string
+}
+
+func ParseFlagsServer(logger *zap.SugaredLogger) Config {
 	cfg := Config{}
 	cfg.logger = logger
 
-	cfg.parseCommandLine()
-	cfg.parseEnvironment()
+	cfg.parseCommandLineServer()
+	cfg.parseEnvironmentServer()
 
 	return cfg
 }
 
-func (cfg *Config) parseCommandLine() {
+func (cfg *Config) parseCommandLineServer() {
 
 	addrTmp := flag.String("a", "localhost:8080", "address and port to run server")
 	storeIntervalTmp := flag.Int("i", 2, "interval to save metrics")
 	filePathTmp := flag.String("f", "/tmp/metrics.json", "path to storage file")
 	restoreTmp := flag.Bool("r", true, "restore metrics from file on startup")
 	connStrTmp := flag.String("d", "", "postgress connection string")
+	KeyHTmp := flag.String("k", "", "hash key")
 
 	flag.Parse()
 
@@ -52,9 +63,12 @@ func (cfg *Config) parseCommandLine() {
 	if connStrTmp != nil {
 		cfg.DBConnStr = *connStrTmp
 	}
+	if KeyHTmp != nil {
+		cfg.KeyH = *KeyHTmp
+	}
 }
 
-func (cfg *Config) parseEnvironment() {
+func (cfg *Config) parseEnvironmentServer() {
 	varAdrHost, ok := os.LookupEnv("ADDRESS")
 	if ok {
 		cfg.RunAddr = varAdrHost
@@ -86,5 +100,72 @@ func (cfg *Config) parseEnvironment() {
 	varDatabaseDSN, ok := os.LookupEnv("DATABASE_DSN")
 	if ok {
 		cfg.DBConnStr = varDatabaseDSN
+	}
+
+	varKeyH, ok := os.LookupEnv("KEY")
+	if ok {
+		cfg.KeyH = varKeyH
+	}
+}
+
+func ParseFlagsAgent() ConfigAgent {
+	cfg := ConfigAgent{}
+
+	cfg.parseCommandLineAgent()
+	cfg.parseEnvironmentAgent()
+
+	return cfg
+}
+
+func (cfg *ConfigAgent) parseCommandLineAgent() {
+	addrTmp := flag.String("a", "localhost:8080", "address and port to run server")
+	pollInterval := flag.Int("p", 2, "pollInterval")
+	reportInterval := flag.Int("r", 10, "reportInterval")
+	keyH := flag.String("k", "", "hash key")
+
+	flag.Parse()
+
+	if addrTmp != nil {
+		cfg.HTTPAddr = *addrTmp
+	}
+
+	if pollInterval != nil {
+		cfg.PollInterval = *pollInterval
+	}
+	if reportInterval != nil {
+		cfg.ReportInterval = *reportInterval
+	}
+	if keyH != nil {
+		cfg.KeyH = *keyH
+	}
+}
+
+func (cfg *ConfigAgent) parseEnvironmentAgent() {
+	varAdrHost, ok := os.LookupEnv("ADDRESS")
+	if ok {
+		cfg.HTTPAddr = varAdrHost
+	}
+
+	varPollInterval, ok := os.LookupEnv("POLL_INTERVAL")
+	if ok {
+		intPollInterval, err := strconv.Atoi(varPollInterval)
+		if err != nil {
+			log.Println("Filed to convert string to int, varPollInterval", err)
+		}
+		cfg.PollInterval = intPollInterval
+	}
+
+	varReportInterval, ok := os.LookupEnv("REPORT_INTERVAL")
+	if ok {
+		intReportInterval, err := strconv.Atoi(varReportInterval)
+		if err != nil {
+			log.Println("Filed to convert string to int, varPollInterval", err)
+		}
+		cfg.ReportInterval = intReportInterval
+	}
+
+	varKeyH, ok := os.LookupEnv("KEY")
+	if ok {
+		cfg.KeyH = varKeyH
 	}
 }

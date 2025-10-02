@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Valentin-Makurin/metrics/internal/config"
 )
 
 func TestAgent_Start(t *testing.T) {
@@ -14,9 +16,9 @@ func TestAgent_Start(t *testing.T) {
 
 	collector := NewRuntimeCollector()
 	storage := NewMemStorage()
-	sender := NewHTTPSender("localhost:8080")
+	sender := NewHTTPSender("localhost:8080", "")
 
-	agent := NewAgent(ctx, ConfigAgent{PollInterval: 2, ReportInterval: 10}, collector, storage, sender)
+	agent := NewAgent(ctx, config.ConfigAgent{PollInterval: 2, ReportInterval: 10}, collector, storage, sender)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -34,9 +36,9 @@ func TestAgent_Start(t *testing.T) {
 func TestAgent_writeMtr(t *testing.T) {
 	collector := NewRuntimeCollector()
 	storage := NewMemStorage()
-	sender := NewHTTPSender("localhost:8080")
+	sender := NewHTTPSender("localhost:8080", "")
 
-	agent := NewAgent(context.Background(), ConfigAgent{PollInterval: 2, ReportInterval: 10}, collector, storage, sender)
+	agent := NewAgent(context.Background(), config.ConfigAgent{PollInterval: 2, ReportInterval: 10}, collector, storage, sender)
 
 	agent.writeMtr()
 
@@ -56,8 +58,8 @@ func TestAgent_postMtr(t *testing.T) {
 	defer ts.Close()
 
 	storage := NewMemStorage()
-	sender := NewHTTPSender(ts.URL)
-	agent := NewAgent(context.Background(), ConfigAgent{PollInterval: 2, ReportInterval: 10}, nil, storage, sender)
+	sender := NewHTTPSender(ts.URL, "")
+	agent := NewAgent(context.Background(), config.ConfigAgent{PollInterval: 2, ReportInterval: 10}, nil, storage, sender)
 
 	agent.storage.SetGauge("TestGauge", 123.45)
 	agent.storage.AddCounter("TestCounter", 42)
@@ -76,9 +78,9 @@ func TestAgent_postMtr(t *testing.T) {
 func TestAgent_ConcurrentAccess(t *testing.T) {
 	collector := NewRuntimeCollector()
 	storage := NewMemStorage()
-	sender := NewHTTPSender("localhost:8080")
+	sender := NewHTTPSender("localhost:8080", "")
 
-	agent := NewAgent(context.Background(), ConfigAgent{PollInterval: 2, ReportInterval: 10}, collector, storage, sender)
+	agent := NewAgent(context.Background(), config.ConfigAgent{PollInterval: 2, ReportInterval: 10}, collector, storage, sender)
 
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {

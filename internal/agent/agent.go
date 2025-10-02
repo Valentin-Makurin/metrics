@@ -4,15 +4,12 @@ import (
 	"context"
 	"log"
 	"math/rand"
+
 	"sync"
 	"time"
-)
 
-type ConfigAgent struct {
-	HTTPAddr       string
-	PollInterval   int
-	ReportInterval int
-}
+	"github.com/Valentin-Makurin/metrics/internal/config"
+)
 
 type agent struct {
 	ctx       context.Context
@@ -20,12 +17,12 @@ type agent struct {
 	storage   MetricsStorage
 	collector MetricsCollector
 	sender    MetricsSender
-	config    ConfigAgent
+	config    config.ConfigAgent
 }
 
 func NewAgent(
 	ctx context.Context,
-	cfg ConfigAgent,
+	cfg config.ConfigAgent,
 	collector MetricsCollector,
 	storage MetricsStorage,
 	sender MetricsSender,

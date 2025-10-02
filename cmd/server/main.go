@@ -21,7 +21,7 @@ func main() {
 	defer logger.Sync()
 	sugar := logger.Sugar()
 
-	cfg := config.ParseFlags(sugar)
+	cfg := config.ParseFlagsServer(sugar)
 
 	mtrHandler := &handler.MtrHandler{}
 
@@ -53,6 +53,7 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.LoggerMiddleware(sugar))
 	r.Use(middleware.GzipMiddleware)
+	r.Use(middleware.HashMiddleware(cfg.KeyH))
 	r.Post("/update/{metricType}/{metricName}/{value}", mtrHandler.HandlePost)
 	r.Get("/value/{metricType}/{metricName}", mtrHandler.HandleGet)
 
