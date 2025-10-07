@@ -45,8 +45,7 @@ func (a *agent) Start() {
 	a.wg.Add(3)
 	go a.collect()
 	go a.router(ch)
-	// go a.send()
-	go a.send2(ch)
+	go a.sendW(ch)
 	a.wg.Wait()
 }
 
@@ -113,8 +112,6 @@ func (a *agent) router(ch chan<- []models.Metrics) {
 					fmt.Printf("unsupported gauge value type: %T", val)
 				}
 				res = append(res, metric)
-				// ch <- metric
-
 			}
 
 			for key, val := range couterData {
@@ -124,7 +121,6 @@ func (a *agent) router(ch chan<- []models.Metrics) {
 					MType: models.Counter,
 					Delta: &intVal,
 				}
-				// ch <- metric
 				res = append(res, metric)
 			}
 			ch <- res
@@ -149,12 +145,12 @@ func (a *agent) send() {
 	}
 
 }
-func (a *agent) send2(ch <-chan []models.Metrics) {
+func (a *agent) sendW(ch <-chan []models.Metrics) {
 	for i := range a.config.RateLimit {
 		go func() {
 			fmt.Println("job started", i)
 			for val := range ch {
-				a.postMtr2(val)
+				a.postMtrW(val)
 			}
 		}()
 	}
@@ -214,7 +210,6 @@ func (a *agent) writeMtrExtra() {
 	a.storage.SetGauge("TotalMemory", memVal.Total)
 	a.storage.SetGauge("FreeMemory", memVal.Free)
 	a.storage.SetGauge("CPUutilization1", cpuVal)
-
 }
 
 func (a *agent) postMtr() {
@@ -228,7 +223,7 @@ func (a *agent) postMtr() {
 	}
 }
 
-func (a *agent) postMtr2(mtrs []models.Metrics) {
+func (a *agent) postMtrW(mtrs []models.Metrics) {
 	for _, val := range mtrs {
 		err := a.sender.SendJSONRequest(val)
 		if err != nil {
@@ -240,13 +235,4 @@ func (a *agent) postMtr2(mtrs []models.Metrics) {
 	if err != nil {
 		log.Printf("Failed to SendJSONRequestBatch metrics")
 	}
-
-	// err := a.sender.Send(a.storage.GetAllGauges(), a.storage.GetAllCounters())
-	// if err != nil {
-	// 	log.Printf("Failed to Send metrics")
-	// }
-	// err = a.sender.SendBatch(a.storage.GetAllGauges(), a.storage.GetAllCounters())
-	// if err != nil {
-	// 	log.Printf("Failed to Send metrics")
-	// }
 }
