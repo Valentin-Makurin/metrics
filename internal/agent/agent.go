@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math/rand"
 
@@ -9,6 +10,9 @@ import (
 	"time"
 
 	"github.com/Valentin-Makurin/metrics/internal/config"
+	models "github.com/Valentin-Makurin/metrics/internal/model"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 )
 
 type agent struct {
@@ -37,9 +41,12 @@ func NewAgent(
 }
 
 func (a *agent) Start() {
-	a.wg.Add(2)
+	ch := make(chan []models.Metrics, 40)
+	a.wg.Add(3)
 	go a.collect()
-	go a.send()
+	go a.router(ch)
+	// go a.send()
+	go a.send2(ch)
 	a.wg.Wait()
 }
 
@@ -47,15 +54,85 @@ func (a *agent) collect() {
 	ticker := time.NewTicker(time.Second * time.Duration(a.config.PollInterval))
 	defer ticker.Stop()
 	defer a.wg.Done()
+	var wg sync.WaitGroup
 
 	for {
 		select {
 		case <-ticker.C:
-			a.writeMtr()
+			wg.Add(2)
+			go func() {
+				defer wg.Done()
+				a.writeMtr()
+			}()
+			go func() {
+				defer wg.Done()
+				a.writeMtrExtra()
+			}()
+			wg.Wait()
 		case <-a.ctx.Done():
 			return
 		}
 	}
+}
+
+func (a *agent) router(ch chan<- []models.Metrics) {
+	ticker := time.NewTicker(time.Second * time.Duration(a.config.ReportInterval))
+	defer ticker.Stop()
+	defer a.wg.Done()
+
+	for {
+		select {
+		case <-ticker.C:
+
+			gaugesData := a.storage.GetAllGauges()
+			couterData := a.storage.GetAllCounters()
+
+			res := []models.Metrics{}
+			for key, val := range gaugesData {
+				metric := models.Metrics{
+					ID:    key,
+					MType: models.Gauge,
+				}
+
+				switch v := val.(type) {
+				case float64:
+					metric.Value = &v
+				case uint64:
+					floatVal := float64(v)
+					metric.Value = &floatVal
+				case uint32:
+					floatVal := float64(v)
+					metric.Value = &floatVal
+				case int64:
+					floatVal := float64(v)
+					metric.Value = &floatVal
+				case int:
+					floatVal := float64(v)
+					metric.Value = &floatVal
+				default:
+					fmt.Printf("unsupported gauge value type: %T", val)
+				}
+				res = append(res, metric)
+				// ch <- metric
+
+			}
+
+			for key, val := range couterData {
+				intVal := int64(val)
+				metric := models.Metrics{
+					ID:    key,
+					MType: models.Counter,
+					Delta: &intVal,
+				}
+				// ch <- metric
+				res = append(res, metric)
+			}
+			ch <- res
+		case <-a.ctx.Done():
+			return
+		}
+	}
+
 }
 
 func (a *agent) send() {
@@ -69,6 +146,17 @@ func (a *agent) send() {
 		case <-a.ctx.Done():
 			return
 		}
+	}
+
+}
+func (a *agent) send2(ch <-chan []models.Metrics) {
+	for i := range a.config.RateLimit {
+		go func() {
+			fmt.Println("job started", i)
+			for val := range ch {
+				a.postMtr2(val)
+			}
+		}()
 	}
 }
 
@@ -110,6 +198,25 @@ func (a *agent) writeMtr() {
 	a.storage.AddCounter("PollCount", 1)
 }
 
+func (a *agent) writeMtrExtra() {
+	memVal, err := mem.VirtualMemory()
+	if err != nil {
+		log.Printf("Failed to Collect memVal Extra")
+		return
+	}
+
+	cpuVal, err := cpu.Counts(true)
+	if err != nil {
+		log.Printf("Failed to Collect cpuVal Extra")
+		return
+	}
+
+	a.storage.SetGauge("TotalMemory", memVal.Total)
+	a.storage.SetGauge("FreeMemory", memVal.Free)
+	a.storage.SetGauge("CPUutilization1", cpuVal)
+
+}
+
 func (a *agent) postMtr() {
 	err := a.sender.Send(a.storage.GetAllGauges(), a.storage.GetAllCounters())
 	if err != nil {
@@ -119,4 +226,27 @@ func (a *agent) postMtr() {
 	if err != nil {
 		log.Printf("Failed to Send metrics")
 	}
+}
+
+func (a *agent) postMtr2(mtrs []models.Metrics) {
+	for _, val := range mtrs {
+		err := a.sender.SendJSONRequest(val)
+		if err != nil {
+			log.Printf("Failed to SendJSONRequest metrics")
+		}
+	}
+
+	err := a.sender.SendJSONRequestBatch(mtrs)
+	if err != nil {
+		log.Printf("Failed to SendJSONRequestBatch metrics")
+	}
+
+	// err := a.sender.Send(a.storage.GetAllGauges(), a.storage.GetAllCounters())
+	// if err != nil {
+	// 	log.Printf("Failed to Send metrics")
+	// }
+	// err = a.sender.SendBatch(a.storage.GetAllGauges(), a.storage.GetAllCounters())
+	// if err != nil {
+	// 	log.Printf("Failed to Send metrics")
+	// }
 }

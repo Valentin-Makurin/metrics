@@ -18,6 +18,8 @@ import (
 type MetricsSender interface {
 	Send(gauges map[string]any, counters map[string]uint) error
 	SendBatch(gauges map[string]any, counters map[string]uint) error
+	SendJSONRequestBatch(metric any) error
+	SendJSONRequest(metric models.Metrics) error
 }
 
 type HTTPSender struct {
@@ -56,7 +58,7 @@ func (s *HTTPSender) SendBatch(gauges map[string]any, counters map[string]uint) 
 		return fmt.Errorf("failed prepare mtr data: %w", err)
 	}
 
-	s.sendJSONRequestBatch(mtrs)
+	s.SendJSONRequestBatch(mtrs)
 
 	return nil
 }
@@ -79,11 +81,14 @@ func (s *HTTPSender) sendGaugeMetric(key string, value interface{}) error {
 	case int64:
 		floatVal := float64(v)
 		metric.Value = &floatVal
+	case int:
+		floatVal := float64(v)
+		metric.Value = &floatVal
 	default:
 		return fmt.Errorf("unsupported gauge value type: %T", value)
 	}
 
-	return s.sendJSONRequest(metric)
+	return s.SendJSONRequest(metric)
 }
 
 func (s *HTTPSender) sendCounterMetric(key string, value uint) error {
@@ -94,10 +99,10 @@ func (s *HTTPSender) sendCounterMetric(key string, value uint) error {
 		Delta: &intVal,
 	}
 
-	return s.sendJSONRequest(metric)
+	return s.SendJSONRequest(metric)
 }
 
-func (s *HTTPSender) sendJSONRequest(metric models.Metrics) error {
+func (s *HTTPSender) SendJSONRequest(metric models.Metrics) error {
 	var compressedData bytes.Buffer
 	gz := gzip.NewWriter(&compressedData)
 
@@ -147,7 +152,7 @@ func (s *HTTPSender) sendJSONRequest(metric models.Metrics) error {
 	return nil
 }
 
-func (s *HTTPSender) sendJSONRequestBatch(metric any) error {
+func (s *HTTPSender) SendJSONRequestBatch(metric any) error {
 	var compressedData bytes.Buffer
 	gz := gzip.NewWriter(&compressedData)
 
@@ -218,6 +223,9 @@ func (s *HTTPSender) prepareMtrData(gauges map[string]any, counters map[string]u
 			floatVal := float64(v)
 			metric.Value = &floatVal
 		case int64:
+			floatVal := float64(v)
+			metric.Value = &floatVal
+		case int:
 			floatVal := float64(v)
 			metric.Value = &floatVal
 		default:

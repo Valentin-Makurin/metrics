@@ -21,9 +21,10 @@ type Config struct {
 
 type ConfigAgent struct {
 	HTTPAddr       string
+	KeyH           string
 	PollInterval   int
 	ReportInterval int
-	KeyH           string
+	RateLimit      int
 }
 
 func ParseFlagsServer(logger *zap.SugaredLogger) Config {
@@ -122,6 +123,7 @@ func (cfg *ConfigAgent) parseCommandLineAgent() {
 	pollInterval := flag.Int("p", 2, "pollInterval")
 	reportInterval := flag.Int("r", 10, "reportInterval")
 	keyH := flag.String("k", "", "hash key")
+	rateLim := flag.Int("l", 5, "rateLim")
 
 	flag.Parse()
 
@@ -132,11 +134,17 @@ func (cfg *ConfigAgent) parseCommandLineAgent() {
 	if pollInterval != nil {
 		cfg.PollInterval = *pollInterval
 	}
+
 	if reportInterval != nil {
 		cfg.ReportInterval = *reportInterval
 	}
+
 	if keyH != nil {
 		cfg.KeyH = *keyH
+	}
+
+	if rateLim != nil {
+		cfg.RateLimit = *rateLim
 	}
 }
 
@@ -167,5 +175,14 @@ func (cfg *ConfigAgent) parseEnvironmentAgent() {
 	varKeyH, ok := os.LookupEnv("KEY")
 	if ok {
 		cfg.KeyH = varKeyH
+	}
+
+	varRateLim, ok := os.LookupEnv("RATE_LIMIT")
+	if ok {
+		intRateLim, err := strconv.Atoi(varRateLim)
+		if err != nil {
+			log.Println("Filed to convert string to int, varRateLim", err)
+		}
+		cfg.RateLimit = intRateLim
 	}
 }

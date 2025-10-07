@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+
 	"time"
 
 	"github.com/Valentin-Makurin/metrics/internal/agent"
