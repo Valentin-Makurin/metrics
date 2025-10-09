@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"syscall"
@@ -16,8 +15,6 @@ import (
 )
 
 type MetricsSender interface {
-	Send(gauges map[string]any, counters map[string]uint) error
-	SendBatch(gauges map[string]any, counters map[string]uint) error
 	SendJSONRequestBatch(metric any) error
 	SendJSONRequest(metric models.Metrics) error
 }
@@ -34,72 +31,6 @@ func NewHTTPSender(baseURL, KetH string) *HTTPSender {
 		baseURL: baseURL,
 		KeyH:    KetH,
 	}
-}
-
-func (s *HTTPSender) Send(gauges map[string]any, counters map[string]uint) error {
-	for key, val := range gauges {
-		if err := s.sendGaugeMetric(key, val); err != nil {
-			log.Println("post Gauge error", err, "key", key, "val", val)
-		}
-	}
-
-	for key, val := range counters {
-		if err := s.sendCounterMetric(key, val); err != nil {
-			log.Println("post Counter error", err, "key", key, "val", val)
-		}
-	}
-
-	return nil
-}
-
-func (s *HTTPSender) SendBatch(gauges map[string]any, counters map[string]uint) error {
-	mtrs, err := s.prepareMtrData(gauges, counters)
-	if err != nil {
-		return fmt.Errorf("failed prepare mtr data: %w", err)
-	}
-
-	s.SendJSONRequestBatch(mtrs)
-
-	return nil
-}
-
-func (s *HTTPSender) sendGaugeMetric(key string, value interface{}) error {
-	metric := models.Metrics{
-		ID:    key,
-		MType: models.Gauge,
-	}
-
-	switch v := value.(type) {
-	case float64:
-		metric.Value = &v
-	case uint64:
-		floatVal := float64(v)
-		metric.Value = &floatVal
-	case uint32:
-		floatVal := float64(v)
-		metric.Value = &floatVal
-	case int64:
-		floatVal := float64(v)
-		metric.Value = &floatVal
-	case int:
-		floatVal := float64(v)
-		metric.Value = &floatVal
-	default:
-		return fmt.Errorf("unsupported gauge value type: %T", value)
-	}
-
-	return s.SendJSONRequest(metric)
-}
-
-func (s *HTTPSender) sendCounterMetric(key string, value uint) error {
-	intVal := int64(value)
-	metric := models.Metrics{
-		ID:    key,
-		MType: models.Counter,
-		Delta: &intVal,
-	}
-
-	return s.SendJSONRequest(metric)
 }
 
 func (s *HTTPSender) SendJSONRequest(metric models.Metrics) error {
@@ -203,48 +134,6 @@ func (s *HTTPSender) runReq(req *http.Request) (*http.Response, error) {
 		return s.client.Do(req)
 	},
 		isTemporaryError)
-}
-
-func (s *HTTPSender) prepareMtrData(gauges map[string]any, counters map[string]uint) ([]models.Metrics, error) {
-	res := []models.Metrics{}
-	for key, val := range gauges {
-		metric := models.Metrics{
-			ID:    key,
-			MType: models.Gauge,
-		}
-
-		switch v := val.(type) {
-		case float64:
-			metric.Value = &v
-		case uint64:
-			floatVal := float64(v)
-			metric.Value = &floatVal
-		case uint32:
-			floatVal := float64(v)
-			metric.Value = &floatVal
-		case int64:
-			floatVal := float64(v)
-			metric.Value = &floatVal
-		case int:
-			floatVal := float64(v)
-			metric.Value = &floatVal
-		default:
-			return nil, fmt.Errorf("unsupported gauge value type: %T", val)
-		}
-		res = append(res, metric)
-	}
-
-	for key, val := range counters {
-		intVal := int64(val)
-		metric := models.Metrics{
-			ID:    key,
-			MType: models.Counter,
-			Delta: &intVal,
-		}
-		res = append(res, metric)
-	}
-
-	return res, nil
 }
 
 func isTemporaryError(err error) bool {

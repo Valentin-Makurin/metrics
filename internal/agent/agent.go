@@ -22,6 +22,7 @@ type agent struct {
 	collector MetricsCollector
 	sender    MetricsSender
 	config    config.ConfigAgent
+	ch        chan []models.Metrics
 }
 
 func NewAgent(
@@ -37,15 +38,15 @@ func NewAgent(
 		collector: collector,
 		sender:    sender,
 		config:    cfg,
+		ch:        make(chan []models.Metrics),
 	}
 }
 
 func (a *agent) Start() {
-	ch := make(chan []models.Metrics, 40)
 	a.wg.Add(3)
 	go a.collect()
-	go a.router(ch)
-	go a.sendW(ch)
+	go a.router()
+	go a.sendW()
 	a.wg.Wait()
 }
 
@@ -74,7 +75,7 @@ func (a *agent) collect() {
 	}
 }
 
-func (a *agent) router(ch chan<- []models.Metrics) {
+func (a *agent) router() {
 	ticker := time.NewTicker(time.Second * time.Duration(a.config.ReportInterval))
 	defer ticker.Stop()
 	defer a.wg.Done()
@@ -123,7 +124,7 @@ func (a *agent) router(ch chan<- []models.Metrics) {
 				}
 				res = append(res, metric)
 			}
-			ch <- res
+			a.ch <- res
 		case <-a.ctx.Done():
 			return
 		}
@@ -131,26 +132,17 @@ func (a *agent) router(ch chan<- []models.Metrics) {
 
 }
 
-func (a *agent) send() {
-	ticker := time.NewTicker(time.Second * time.Duration(a.config.ReportInterval))
-	defer ticker.Stop()
-	defer a.wg.Done()
-	for {
-		select {
-		case <-ticker.C:
-			a.postMtr()
-		case <-a.ctx.Done():
-			return
-		}
-	}
-
-}
-func (a *agent) sendW(ch <-chan []models.Metrics) {
+func (a *agent) sendW() {
 	for i := range a.config.RateLimit {
 		go func() {
 			fmt.Println("job started", i)
-			for val := range ch {
-				a.postMtrW(val)
+			for {
+				select {
+				case val := <-a.ch:
+					a.postMtrW(val)
+				case <-a.ctx.Done():
+					return
+				}
 			}
 		}()
 	}
@@ -201,7 +193,7 @@ func (a *agent) writeMtrExtra() {
 		return
 	}
 
-	cpuVal, err := cpu.Counts(true)
+	cpuVal, err := cpu.Percent(1*time.Second, true)
 	if err != nil {
 		log.Printf("Failed to Collect cpuVal Extra")
 		return
@@ -210,17 +202,6 @@ func (a *agent) writeMtrExtra() {
 	a.storage.SetGauge("TotalMemory", memVal.Total)
 	a.storage.SetGauge("FreeMemory", memVal.Free)
 	a.storage.SetGauge("CPUutilization1", cpuVal)
-}
-
-func (a *agent) postMtr() {
-	err := a.sender.Send(a.storage.GetAllGauges(), a.storage.GetAllCounters())
-	if err != nil {
-		log.Printf("Failed to Send metrics")
-	}
-	err = a.sender.SendBatch(a.storage.GetAllGauges(), a.storage.GetAllCounters())
-	if err != nil {
-		log.Printf("Failed to Send metrics")
-	}
 }
 
 func (a *agent) postMtrW(mtrs []models.Metrics) {
