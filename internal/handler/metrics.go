@@ -1,29 +1,46 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"html"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
 	models "github.com/Valentin-Makurin/metrics/internal/model"
+	"go.uber.org/zap"
 )
 
-type Storage interface {
+type MetricRepository interface {
 	SetVal(key string, mtr models.Metrics)
 	AddVal(key string, mtr models.Metrics)
 	GetVal(key string) models.Metrics
 	GetAllVal() map[string]string
 }
-type MtrHandler struct {
-	storage Storage
+
+type BatchRepository interface {
+	UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]models.Metrics) error
 }
 
-func NewMtrHandler(stor Storage) *MtrHandler {
+type HealthChecker interface {
+	Ping() error
+}
+
+type Storage interface {
+	MetricRepository
+	BatchRepository
+	HealthChecker
+}
+type MtrHandler struct {
+	storage Storage
+	logger  *zap.SugaredLogger
+}
+
+func NewMtrHandler(stor Storage, logger *zap.SugaredLogger) *MtrHandler {
 	return &MtrHandler{
 		storage: stor,
+		logger:  logger,
 	}
 }
 
@@ -72,6 +89,118 @@ func (h *MtrHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *MtrHandler) HandlePostUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var metric models.Metrics
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&metric); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if metric.ID == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if !TypeCheck(metric.MType) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	switch metric.MType {
+	case models.Gauge:
+		if metric.Value == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		h.storage.SetVal(metric.ID, metric)
+
+	case models.Counter:
+		if metric.Delta == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		h.storage.AddVal(metric.ID, metric)
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *MtrHandler) HandlePostUpdates(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var rawMetrics []models.Metrics
+	var validMetricsGauge []models.Metrics
+	validMetricsCounter := make(map[string]models.Metrics)
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&rawMetrics); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	for _, val := range rawMetrics {
+		if val.ID == "" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		if !TypeCheck(val.MType) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		switch val.MType {
+		case models.Gauge:
+			if val.Value == nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			validMetricsGauge = append(validMetricsGauge, val)
+
+		case models.Counter:
+			if val.Delta == nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			mtr, ok := validMetricsCounter[val.ID]
+			if ok {
+				*val.Delta += *mtr.Delta
+			}
+			validMetricsCounter[val.ID] = val
+		}
+
+	}
+
+	err := h.storage.UpsertBatch(validMetricsGauge, validMetricsCounter)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func TypeCheck(metricType string) bool {
 	return metricType == models.Gauge || metricType == models.Counter
 }
@@ -112,7 +241,51 @@ func (h *MtrHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err := w.Write([]byte(valStr))
 	if err != nil {
-		log.Printf("Failed to write response")
+		h.logger.Error("Failed to write response", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+}
+
+func (h *MtrHandler) HandleGetValue(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var metric models.Metrics
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&metric); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if !TypeCheck(metric.MType) {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+
+	if metric.ID == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	res := h.storage.GetVal(metric.ID)
+	if res.MType == "" || res.MType != metric.MType {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	metric.Value = res.Value
+	metric.Delta = res.Delta
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(metric); err != nil {
+		h.logger.Error("Error encoding JSON response", err)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -123,7 +296,7 @@ func (h *MtrHandler) HandleRoot(w http.ResponseWriter, r *http.Request) {
 	metrics := h.storage.GetAllVal()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	_, _ = w.Write([]byte(`
+	_, err := w.Write([]byte(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -146,15 +319,40 @@ func (h *MtrHandler) HandleRoot(w http.ResponseWriter, r *http.Request) {
                 </thead>
                 <tbody>
     `))
-
-	for name, value := range metrics {
-		_, _ = fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td></tr>", html.EscapeString(name), html.EscapeString(value))
+	if err != nil {
+		h.logger.Error("Filed to write html top", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
-	_, _ = w.Write([]byte(`
+	for name, value := range metrics {
+		_, err = fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td></tr>", html.EscapeString(name), html.EscapeString(value))
+		if err != nil {
+			h.logger.Error("Filed to write html body", err)
+		}
+
+	}
+
+	_, err = w.Write([]byte(`
                 </tbody>
             </table>
         </body>
         </html>
     `))
+	if err != nil {
+		h.logger.Error("Filed to write html footer", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+}
+
+func (h *MtrHandler) HandlePing(w http.ResponseWriter, r *http.Request) {
+	err := h.storage.Ping()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+
 }

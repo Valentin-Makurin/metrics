@@ -2,21 +2,17 @@ package main
 
 import (
 	"context"
-	"flag"
 	"log"
+
 	"time"
 
 	"github.com/Valentin-Makurin/metrics/internal/agent"
+	"github.com/Valentin-Makurin/metrics/internal/config"
 )
 
 func main() {
-	var cfg agent.ConfigAgent
 
-	flag.StringVar(&cfg.HTTPAddr, "a", "localhost:8080", "address and port to run server")
-	flag.IntVar(&cfg.ReportInterval, "r", 10, "reportInterval")
-	flag.IntVar(&cfg.PollInterval, "p", 2, "pollInterval")
-
-	flag.Parse()
+	cfg := config.ParseFlagsAgent()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -26,7 +22,7 @@ func main() {
 
 	storage := agent.NewMemStorage()
 	collector := agent.NewRuntimeCollector()
-	sender := agent.NewHTTPSender(cfg.HTTPAddr)
+	sender := agent.NewHTTPSender(cfg.HTTPAddr, cfg.KeyH)
 
 	agent := agent.NewAgent(ctx, cfg, collector, storage, sender)
 	agent.Start()

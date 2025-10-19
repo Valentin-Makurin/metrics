@@ -65,9 +65,7 @@ func (s *MemStorage) GetAllGauges() map[string]any {
 
 	result := make(map[string]any)
 	for k, v := range s.gaugesStorage {
-		if floatVal, ok := v.(float64); ok {
-			result[k] = floatVal
-		}
+		result[k] = v
 	}
 	return result
 }
