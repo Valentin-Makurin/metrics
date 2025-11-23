@@ -54,6 +54,7 @@ func main() {
 	r.Use(middleware.LoggerMiddleware(sugar))
 	r.Use(middleware.GzipMiddleware)
 	r.Use(middleware.HashMiddleware(cfg.KeyH))
+	r.Use(middleware.AuditMiddleware(&http.Client{}, sugar, cfg.AuditFilePath, cfg.AuditURL))
 	r.Post("/update/{metricType}/{metricName}/{value}", mtrHandler.HandlePost)
 	r.Get("/value/{metricType}/{metricName}", mtrHandler.HandleGet)
 

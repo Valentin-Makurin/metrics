@@ -17,6 +17,8 @@ type Config struct {
 	Restore       bool
 	DBConnStr     string
 	KeyH          string
+	AuditFilePath string
+	AuditURL      string
 }
 
 type ConfigAgent struct {
@@ -44,14 +46,15 @@ func (cfg *Config) parseCommandLineServer() {
 	filePathTmp := flag.String("f", "/tmp/metrics.json", "path to storage file")
 	restoreTmp := flag.Bool("r", true, "restore metrics from file on startup")
 	connStrTmp := flag.String("d", "", "postgress connection string")
-	KeyHTmp := flag.String("k", "", "hash key")
+	keyHTmp := flag.String("k", "", "hash key")
+	auditFilePathTmp := flag.String("audit-file", "", "audir file path ")
+	auditURLTmp := flag.String("audit-url", "", "audit url")
 
 	flag.Parse()
 
 	if addrTmp != nil {
 		cfg.RunAddr = *addrTmp
 	}
-
 	if storeIntervalTmp != nil {
 		cfg.StoreInterval = *storeIntervalTmp
 	}
@@ -64,8 +67,15 @@ func (cfg *Config) parseCommandLineServer() {
 	if connStrTmp != nil {
 		cfg.DBConnStr = *connStrTmp
 	}
-	if KeyHTmp != nil {
-		cfg.KeyH = *KeyHTmp
+	if keyHTmp != nil {
+		cfg.KeyH = *keyHTmp
+	}
+
+	if auditFilePathTmp != nil {
+		cfg.AuditFilePath = *auditFilePathTmp
+	}
+	if auditURLTmp != nil {
+		cfg.AuditURL = *auditURLTmp
 	}
 }
 
@@ -106,6 +116,16 @@ func (cfg *Config) parseEnvironmentServer() {
 	varKeyH, ok := os.LookupEnv("KEY")
 	if ok {
 		cfg.KeyH = varKeyH
+	}
+
+	varAuditFilePath, ok := os.LookupEnv("AUDIT_FILE")
+	if ok {
+		cfg.AuditFilePath = varAuditFilePath
+	}
+
+	varAuditURL, ok := os.LookupEnv("AUDIT_URL")
+	if ok {
+		cfg.AuditURL = varAuditURL
 	}
 }
 
