@@ -166,7 +166,7 @@ func prepareEvent(msg *models.Event, body []byte, RPath, RAddr string) error {
 		}
 	}
 
-	msg.Ts = time.Now().Unix()
+	msg.TS = time.Now().Unix()
 	msg.IPAddress = RAddr
 	return nil
 }
