@@ -167,7 +167,7 @@ func prepareEvent(msg *models.Event, body []byte, RPath, RAddr string) error {
 	}
 
 	msg.Ts = time.Now().Unix()
-	msg.Ip_address = RAddr
+	msg.IPAddress = RAddr
 	return nil
 }
 
@@ -201,8 +201,10 @@ func sendAuditMessage(auditURL string, msg []byte, mu *sync.Mutex, client *http.
 
 	req.Header.Set("Content-Type", "application/json")
 
-	_, err = client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		logger.Infow("audit send request error", "err", err)
+		return
 	}
+	resp.Body.Close()
 }

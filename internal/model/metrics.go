@@ -26,7 +26,7 @@ type Metrics struct {
 }
 
 type Event struct {
-	Ts         int64    `json:"ts"`
-	Metrics    []string `json:"metrics"`
-	Ip_address string   `json:"ip_addresss"`
+	Ts        int64    `json:"ts"`
+	Metrics   []string `json:"metrics"`
+	IPAddress string   `json:"ip_addresss"`
 }
