@@ -2,13 +2,14 @@ package middleware
 
 import (
 	"bytes"
-	"github.com/Valentin-Makurin/metrics/internal/common"
-	"go.uber.org/zap/zaptest"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/Valentin-Makurin/metrics/internal/common"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestLoggerMiddleware(t *testing.T) {
