@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	"net/http/pprof"
+
 	"github.com/Valentin-Makurin/metrics/internal/common"
 	"github.com/Valentin-Makurin/metrics/internal/config"
 	"github.com/Valentin-Makurin/metrics/internal/db"
@@ -11,8 +13,6 @@ import (
 	"github.com/Valentin-Makurin/metrics/internal/middleware"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"net/http/pprof"
-	_ "net/http/pprof"
 )
 
 func main() {
