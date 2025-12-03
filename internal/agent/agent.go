@@ -201,7 +201,7 @@ func (a *agent) writeMtrExtra() {
 
 	a.storage.SetGauge("TotalMemory", memVal.Total)
 	a.storage.SetGauge("FreeMemory", memVal.Free)
-	if cpuVal != nil && len(cpuVal) != 0 {
+	if len(cpuVal) != 0 {
 		a.storage.SetGauge("CPUutilization1", cpuVal[0])
 	}
 
