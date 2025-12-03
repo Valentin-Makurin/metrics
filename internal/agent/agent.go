@@ -193,7 +193,7 @@ func (a *agent) writeMtrExtra() {
 		return
 	}
 
-	cpuVal, err := cpu.Percent(1*time.Second, true)
+	cpuVal, err := cpu.Percent(1*time.Second, false)
 	if err != nil {
 		log.Printf("Failed to Collect cpuVal Extra")
 		return
@@ -201,7 +201,10 @@ func (a *agent) writeMtrExtra() {
 
 	a.storage.SetGauge("TotalMemory", memVal.Total)
 	a.storage.SetGauge("FreeMemory", memVal.Free)
-	a.storage.SetGauge("CPUutilization1", cpuVal)
+	if cpuVal != nil && len(cpuVal) != 0 {
+		a.storage.SetGauge("CPUutilization1", cpuVal[0])
+	}
+
 }
 
 func (a *agent) postMtrW(mtrs []models.Metrics) {

@@ -149,8 +149,8 @@ func (h *MtrHandler) HandlePostUpdates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var rawMetrics []models.Metrics
-	var validMetricsGauge []models.Metrics
+	rawMetrics := make([]models.Metrics, 0, 60)
+	validMetricsGauge := make([]models.Metrics, 0, 60)
 	validMetricsCounter := make(map[string]models.Metrics)
 
 	decoder := json.NewDecoder(r.Body)

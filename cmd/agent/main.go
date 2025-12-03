@@ -16,7 +16,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		time.Sleep(60 * time.Second)
+		time.Sleep(30 * time.Second)
 		cancel()
 	}()
 
