@@ -1,3 +1,4 @@
+// Package middleware предоставляет HTTP middleware для обработки запросов.
 package middleware
 
 import (
@@ -17,7 +18,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// LoggerMiddleware - middleware для логирования запросов и ответов
+// LoggerMiddleware создает middleware для логирования HTTP запросов и ответов.
 func LoggerMiddleware(logger *zap.SugaredLogger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +41,7 @@ func LoggerMiddleware(logger *zap.SugaredLogger) func(next http.Handler) http.Ha
 	}
 }
 
+// GzipMiddleware создает middleware для сжатия gzip HTTP трафика.
 func GzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ow := w
@@ -71,6 +73,7 @@ func GzipMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// HashMiddleware создает middleware для проверки HMAC подписей запросов.
 func HashMiddleware(KeyH string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -101,6 +104,7 @@ func HashMiddleware(KeyH string) func(next http.Handler) http.Handler {
 	}
 }
 
+// AuditMiddleware создает middleware для аудита операций с метриками.
 func AuditMiddleware(client *http.Client, logger *zap.SugaredLogger, auditFile, auditURL string) func(next http.Handler) http.Handler {
 	var muWrite sync.Mutex
 	var muWSend sync.Mutex
@@ -147,7 +151,7 @@ func AuditMiddleware(client *http.Client, logger *zap.SugaredLogger, auditFile, 
 	}
 }
 
-// prepareEvent prepare audit event
+// prepareEvent подготавливает событие аудита на основе тела запроса.
 func prepareEvent(msg *models.Event, body []byte, RPath, RAddr string) error {
 	switch RPath {
 	case "/update/":
@@ -171,7 +175,7 @@ func prepareEvent(msg *models.Event, body []byte, RPath, RAddr string) error {
 	return nil
 }
 
-// writeAuditMessage
+// writeAuditMessage записывает событие аудита в файл.
 func writeAuditMessage(filePath string, msg []byte, mu *sync.Mutex, logger *zap.SugaredLogger) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -187,7 +191,7 @@ func writeAuditMessage(filePath string, msg []byte, mu *sync.Mutex, logger *zap.
 	}
 }
 
-// sendAuditMessage
+// sendAuditMessage отправляет событие аудита на внешний сервер.
 func sendAuditMessage(auditURL string, msg []byte, mu *sync.Mutex, client *http.Client, logger *zap.SugaredLogger) {
 	mu.Lock()
 	defer mu.Unlock()

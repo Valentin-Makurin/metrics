@@ -1,9 +1,11 @@
+// Package handler предоставляет HTTP-обработчики для работы с метриками.
 package handler
 
 import (
 	models "github.com/Valentin-Makurin/metrics/internal/model"
 )
 
+// MockStorage реализует интерфейс Storage для тестирования обработчиков.
 type MockStorage struct {
 	SetValCalled      bool
 	SetValArgs        []interface{}
@@ -26,6 +28,7 @@ type MockStorage struct {
 	PingCustom        func() error
 }
 
+// SetVal сохраняет gauge метрику и отслеживает вызов метода.
 func (m *MockStorage) SetVal(key string, mtr models.Metrics) {
 	m.SetValCalled = true
 	m.SetValArgs = []interface{}{key, mtr}
@@ -34,6 +37,7 @@ func (m *MockStorage) SetVal(key string, mtr models.Metrics) {
 	}
 }
 
+// AddVal добавляет значение к counter метрике и отслеживает вызов метода.
 func (m *MockStorage) AddVal(key string, mtr models.Metrics) {
 	m.AddValCalled = true
 	m.AddValArgs = []interface{}{key, mtr}
@@ -42,6 +46,7 @@ func (m *MockStorage) AddVal(key string, mtr models.Metrics) {
 	}
 }
 
+// GetVal возвращает метрику по ключу и отслеживает вызов метода.
 func (m *MockStorage) GetVal(key string) models.Metrics {
 	m.GetValCalled = true
 	m.GetValKey = key
@@ -51,6 +56,7 @@ func (m *MockStorage) GetVal(key string) models.Metrics {
 	return m.GetValResult
 }
 
+// GetAllVal возвращает все метрики и отслеживает вызов метода.
 func (m *MockStorage) GetAllVal() map[string]string {
 	m.GetAllValCalled = true
 	if m.GetAllValCustom != nil {
@@ -59,6 +65,7 @@ func (m *MockStorage) GetAllVal() map[string]string {
 	return m.GetAllValResult
 }
 
+// UpsertBatch выполняет пакетное обновление метрик и отслеживает вызов метода.
 func (m *MockStorage) UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]models.Metrics) error {
 	m.UpsertBatchCalled = true
 	if m.UpsertBatchCustom != nil {
@@ -67,6 +74,7 @@ func (m *MockStorage) UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]m
 	return m.UpsertBatchError
 }
 
+// Ping проверяет доступность хранилища и отслеживает вызов метода.
 func (m *MockStorage) Ping() error {
 	m.PingCalled = true
 	if m.PingCustom != nil {

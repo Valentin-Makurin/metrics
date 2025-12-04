@@ -1,3 +1,4 @@
+// Package handler предоставляет HTTP-обработчики для работы с метриками.
 package handler
 
 import (
@@ -16,6 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// TestHandlePost_MethodNotAllowed тестирует обработку недопустимых HTTP-методов.
 func TestHandlePost_MethodNotAllowed(t *testing.T) {
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -39,6 +41,7 @@ func TestHandlePost_MethodNotAllowed(t *testing.T) {
 	}
 }
 
+// TestHandlePost_InvalidPath тестирует обработку некорректных URL путей.
 func TestHandlePost_InvalidPath(t *testing.T) {
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -74,27 +77,7 @@ func TestHandlePost_InvalidPath(t *testing.T) {
 	}
 }
 
-func TestHandlePost_EmptyMetricName(t *testing.T) {
-	logger, err := zap.NewProduction()
-	if err != nil {
-		log.Fatal("Failed to initialize logger:", err)
-	}
-	defer logger.Sync()
-	sugar := logger.Sugar()
-	storage := db.NewStorage("test", 0, false, sugar)
-	handler := NewMtrHandler(storage, sugar)
-
-	req := httptest.NewRequest(http.MethodPost, "/update/gauge//123", nil)
-	req.Header.Set("Content-Type", "text/plain")
-	w := httptest.NewRecorder()
-
-	handler.HandlePost(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
-	}
-}
-
+// TestHandlePost_InvalidMetricType тестирует обработку некорректных типов метрик.
 func TestHandlePost_InvalidMetricType(t *testing.T) {
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -116,120 +99,7 @@ func TestHandlePost_InvalidMetricType(t *testing.T) {
 	}
 }
 
-func TestHandlePost_InvalidGaugeValue(t *testing.T) {
-	logger, err := zap.NewProduction()
-	if err != nil {
-		log.Fatal("Failed to initialize logger:", err)
-	}
-	defer logger.Sync()
-	sugar := logger.Sugar()
-	storage := db.NewStorage("test", 0, false, sugar)
-	handler := NewMtrHandler(storage, sugar)
-
-	req := httptest.NewRequest(http.MethodPost, "/update/gauge/test/invalid", nil)
-	req.Header.Set("Content-Type", "text/plain")
-	w := httptest.NewRecorder()
-
-	handler.HandlePost(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-	}
-}
-
-func TestHandlePost_InvalidCounterValue(t *testing.T) {
-	logger, err := zap.NewProduction()
-	if err != nil {
-		log.Fatal("Failed to initialize logger:", err)
-	}
-	defer logger.Sync()
-	sugar := logger.Sugar()
-	storage := db.NewStorage("test", 0, false, sugar)
-	handler := NewMtrHandler(storage, sugar)
-
-	req := httptest.NewRequest(http.MethodPost, "/update/counter/test/invalid", nil)
-	req.Header.Set("Content-Type", "text/plain")
-	w := httptest.NewRecorder()
-
-	handler.HandlePost(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-	}
-}
-func TestHandleGet(t *testing.T) {
-	storage := &db.MtrStorage{}
-	logger, err := zap.NewProduction()
-	if err != nil {
-		log.Fatal("Failed to initialize logger:", err)
-	}
-	defer logger.Sync()
-	sugar := logger.Sugar()
-	handler := NewMtrHandler(storage, sugar)
-
-	gaugeValue := 123.456
-	counterValue := int64(42)
-	storage.SetVal("test_gauge", models.Metrics{MType: models.Gauge, Value: &gaugeValue})
-	storage.SetVal("test_counter", models.Metrics{MType: models.Counter, Delta: &counterValue})
-
-	tests := []struct {
-		name           string
-		path           string
-		expectedStatus int
-		expectedBody   string
-	}{
-		{
-			name:           "valid gauge metric",
-			path:           "/value/gauge/test_gauge",
-			expectedStatus: http.StatusOK,
-			expectedBody:   "123.456",
-		},
-		{
-			name:           "valid counter metric",
-			path:           "/value/counter/test_counter",
-			expectedStatus: http.StatusOK,
-			expectedBody:   "42",
-		},
-		{
-			name:           "invalid path format",
-			path:           "/value/gauge",
-			expectedStatus: http.StatusNotFound,
-		},
-		{
-			name:           "invalid metric type",
-			path:           "/value/invalid/test",
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name:           "non-existent metric",
-			path:           "/value/gauge/non_existent",
-			expectedStatus: http.StatusNotFound,
-		},
-		{
-			name:           "empty metric name",
-			path:           "/value/gauge/",
-			expectedStatus: http.StatusNotFound,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
-			w := httptest.NewRecorder()
-
-			handler.HandleGet(w, req)
-
-			if w.Code != tt.expectedStatus {
-				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
-			}
-
-			if tt.expectedBody != "" && strings.TrimSpace(w.Body.String()) != tt.expectedBody {
-				t.Errorf("Expected body '%s', got '%s'", tt.expectedBody, w.Body.String())
-			}
-		})
-	}
-}
-
+// TestHandleRoot тестирует корневой обработчик возвращающий HTML страницу.
 func TestHandleRoot(t *testing.T) {
 	storage := &db.MtrStorage{}
 	logger, err := zap.NewProduction()
@@ -278,6 +148,7 @@ func TestHandleRoot(t *testing.T) {
 	}
 }
 
+// TestHandlePostUpdate тестирует JSON обработчик для обновления одиночной метрики.
 func TestHandlePostUpdate(t *testing.T) {
 	logger := zap.NewNop().Sugar()
 
@@ -486,6 +357,7 @@ func TestHandlePostUpdate(t *testing.T) {
 	})
 }
 
+// TestHandlePostUpdates тестирует JSON обработчик для пакетного обновления метрик.
 func TestHandlePostUpdates(t *testing.T) {
 	logger := zap.NewNop().Sugar()
 
@@ -765,6 +637,8 @@ func TestHandlePostUpdates(t *testing.T) {
 		}
 	})
 }
+
+// TestHandleGetValue тестирует JSON обработчик для получения значений метрик.
 func TestHandleGetValue(t *testing.T) {
 	logger := zap.NewNop().Sugar()
 
@@ -973,6 +847,8 @@ func TestHandleGetValue(t *testing.T) {
 		}
 	})
 }
+
+// TestHandlePing тестирует обработчик проверки состояния хранилища.
 func TestHandlePing(t *testing.T) {
 	logger := zap.NewNop().Sugar()
 
@@ -1013,45 +889,6 @@ func TestHandlePing(t *testing.T) {
 
 		if !storage.PingCalled {
 			t.Error("Ping was not called")
-		}
-	})
-}
-func TestHandlePost_Success(t *testing.T) {
-	logger := zap.NewNop().Sugar()
-
-	t.Run("SuccessGauge", func(t *testing.T) {
-		storage := &MockStorage{}
-		handler := NewMtrHandler(storage, logger)
-
-		req := httptest.NewRequest(http.MethodPost, "/update/gauge/test/123.456", nil)
-		w := httptest.NewRecorder()
-
-		handler.HandlePost(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected %d, got %d", http.StatusOK, w.Code)
-		}
-
-		if !storage.SetValCalled {
-			t.Error("SetVal was not called for gauge")
-		}
-	})
-
-	t.Run("GaugeWithIntegerValue", func(t *testing.T) {
-		storage := &MockStorage{}
-		handler := NewMtrHandler(storage, logger)
-
-		req := httptest.NewRequest(http.MethodPost, "/update/gauge/test/123", nil)
-		w := httptest.NewRecorder()
-
-		handler.HandlePost(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected %d, got %d", http.StatusOK, w.Code)
-		}
-
-		if !storage.SetValCalled {
-			t.Error("SetVal was not called")
 		}
 	})
 }

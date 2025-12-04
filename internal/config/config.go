@@ -1,3 +1,4 @@
+// Package config предоставляет функциональность для загрузки и парсинга конфигурации приложения.
 package config
 
 import (
@@ -9,6 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Config содержит конфигурационные параметры сервера метрик.
 type Config struct {
 	logger        *zap.SugaredLogger
 	RunAddr       string
@@ -21,6 +23,7 @@ type Config struct {
 	AuditURL      string
 }
 
+// ConfigAgent содержит конфигурационные параметры агента сбора метрик.
 type ConfigAgent struct {
 	HTTPAddr       string
 	KeyH           string
@@ -29,6 +32,7 @@ type ConfigAgent struct {
 	RateLimit      int
 }
 
+// ParseFlagsServer парсит конфигурацию для сервера из командной строки и переменных окружения.
 func ParseFlagsServer(logger *zap.SugaredLogger) Config {
 	cfg := Config{}
 	cfg.logger = logger
@@ -39,8 +43,8 @@ func ParseFlagsServer(logger *zap.SugaredLogger) Config {
 	return cfg
 }
 
+// parseCommandLineServer парсит флаги командной строки для сервера.
 func (cfg *Config) parseCommandLineServer() {
-
 	addrTmp := flag.String("a", "localhost:8080", "address and port to run server")
 	storeIntervalTmp := flag.Int("i", 2, "interval to save metrics")
 	filePathTmp := flag.String("f", "/tmp/metrics.json", "path to storage file")
@@ -79,6 +83,7 @@ func (cfg *Config) parseCommandLineServer() {
 	}
 }
 
+// parseEnvironmentServer парсит переменные окружения для сервера.
 func (cfg *Config) parseEnvironmentServer() {
 	varAdrHost, ok := os.LookupEnv("ADDRESS")
 	if ok {
@@ -129,6 +134,7 @@ func (cfg *Config) parseEnvironmentServer() {
 	}
 }
 
+// ParseFlagsAgent парсит конфигурацию для агента из командной строки и переменных окружения.
 func ParseFlagsAgent() ConfigAgent {
 	cfg := ConfigAgent{}
 
@@ -138,6 +144,7 @@ func ParseFlagsAgent() ConfigAgent {
 	return cfg
 }
 
+// parseCommandLineAgent парсит флаги командной строки для агента.
 func (cfg *ConfigAgent) parseCommandLineAgent() {
 	addrTmp := flag.String("a", "localhost:8080", "address and port to run server")
 	pollInterval := flag.Int("p", 2, "pollInterval")
@@ -168,6 +175,7 @@ func (cfg *ConfigAgent) parseCommandLineAgent() {
 	}
 }
 
+// parseEnvironmentAgent парсит переменные окружения для агента.
 func (cfg *ConfigAgent) parseEnvironmentAgent() {
 	varAdrHost, ok := os.LookupEnv("ADDRESS")
 	if ok {

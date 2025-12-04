@@ -1,3 +1,4 @@
+// Package middleware предоставляет HTTP middleware для обработки запросов.
 package middleware
 
 import (
@@ -12,6 +13,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+// TestLoggerMiddleware тестирует middleware для логирования HTTP запросов.
 func TestLoggerMiddleware(t *testing.T) {
 	// Создаем тестовый логгер
 	logger := zaptest.NewLogger(t).Sugar()
@@ -75,6 +77,7 @@ func TestLoggerMiddleware(t *testing.T) {
 	})
 }
 
+// TestGzipMiddleware тестирует middleware для сжатия gzip HTTP трафика.
 func TestGzipMiddleware(t *testing.T) {
 	// Тестовый хендлер
 	responseBody := "Hello, Gzipped World!"
@@ -143,6 +146,7 @@ func TestGzipMiddleware(t *testing.T) {
 	})
 }
 
+// TestHashMiddleware тестирует middleware для проверки HMAC подписей запросов.
 func TestHashMiddleware(t *testing.T) {
 	// Тестовый хендлер
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -275,6 +279,7 @@ func TestHashMiddleware(t *testing.T) {
 	})
 }
 
+// errorReader реализует io.ReadCloser, который всегда возвращает ошибку.
 type errorReader struct{}
 
 func (errorReader) Read(p []byte) (n int, err error) {

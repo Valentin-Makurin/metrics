@@ -1,3 +1,4 @@
+// Package handler предоставляет HTTP-обработчики для работы с метриками.
 package handler
 
 import (
@@ -10,6 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// mockStorage реализует мок-хранилище для тестирования обработчиков без реальной БД.
 type mockStorage struct{}
 
 func (m *mockStorage) SetVal(key string, mtr models.Metrics) {}
@@ -38,6 +40,7 @@ func (m *mockStorage) Ping() error {
 	return nil
 }
 
+// BenchmarkHandlePost_Gauge измеряет производительность обработчика POST запросов для gauge метрик через URL.
 func BenchmarkHandlePost_Gauge(b *testing.B) {
 	logger, _ := zap.NewProduction()
 	sugar := logger.Sugar()
@@ -50,6 +53,7 @@ func BenchmarkHandlePost_Gauge(b *testing.B) {
 	}
 }
 
+// BenchmarkHandlePost_Counter измеряет производительность обработчика POST запросов для counter метрик через URL.
 func BenchmarkHandlePost_Counter(b *testing.B) {
 	logger, _ := zap.NewProduction()
 	sugar := logger.Sugar()
@@ -62,6 +66,7 @@ func BenchmarkHandlePost_Counter(b *testing.B) {
 	}
 }
 
+// BenchmarkHandlePostUpdate_Gauge измеряет производительность обработчика POST запросов для gauge метрик через JSON API.
 func BenchmarkHandlePostUpdate_Gauge(b *testing.B) {
 	logger, _ := zap.NewProduction()
 	sugar := logger.Sugar()
@@ -83,6 +88,7 @@ func BenchmarkHandlePostUpdate_Gauge(b *testing.B) {
 	}
 }
 
+// BenchmarkHandlePostUpdate_Counter измеряет производительность обработчика POST запросов для counter метрик через JSON API.
 func BenchmarkHandlePostUpdate_Counter(b *testing.B) {
 	logger, _ := zap.NewProduction()
 	sugar := logger.Sugar()
@@ -104,6 +110,7 @@ func BenchmarkHandlePostUpdate_Counter(b *testing.B) {
 	}
 }
 
+// BenchmarkHandleGet измеряет производительность обработчика GET запросов для получения метрик через URL.
 func BenchmarkHandleGet(b *testing.B) {
 	logger, _ := zap.NewProduction()
 	sugar := logger.Sugar()
@@ -116,6 +123,7 @@ func BenchmarkHandleGet(b *testing.B) {
 	}
 }
 
+// BenchmarkHandleGetValue измеряет производительность обработчика POST запросов для получения метрик через JSON API.
 func BenchmarkHandleGetValue(b *testing.B) {
 	logger, _ := zap.NewProduction()
 	sugar := logger.Sugar()
@@ -136,6 +144,7 @@ func BenchmarkHandleGetValue(b *testing.B) {
 	}
 }
 
+// BenchmarkHandleRoot измеряет производительность обработчика корневого пути, возвращающего все метрики.
 func BenchmarkHandleRoot(b *testing.B) {
 	logger, _ := zap.NewProduction()
 	sugar := logger.Sugar()
@@ -148,6 +157,7 @@ func BenchmarkHandleRoot(b *testing.B) {
 	}
 }
 
+// BenchmarkHandlePing измеряет производительность обработчика проверки доступности хранилища.
 func BenchmarkHandlePing(b *testing.B) {
 	logger, _ := zap.NewProduction()
 	sugar := logger.Sugar()
@@ -160,6 +170,7 @@ func BenchmarkHandlePing(b *testing.B) {
 	}
 }
 
+// BenchmarkHandlePostUpdates измеряет производительность обработчика пакетного обновления метрик.
 func BenchmarkHandlePostUpdates(b *testing.B) {
 	logger, _ := zap.NewProduction()
 	sugar := logger.Sugar()

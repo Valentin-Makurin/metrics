@@ -1,3 +1,4 @@
+// Package config предоставляет функциональность для загрузки и парсинга конфигурации приложения.
 package config
 
 import (
@@ -8,6 +9,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+// TestParseFlagsServer тестирует парсинг конфигурации сервера.
 func TestParseFlagsServer(t *testing.T) {
 	// Сохраняем оригинальные значения
 	originalArgs := os.Args
@@ -101,6 +103,7 @@ func TestParseFlagsServer(t *testing.T) {
 	})
 }
 
+// TestParseFlagsServer_Environment тестирует парсинг конфигурации сервера из переменных окружения.
 func TestParseFlagsServer_Environment(t *testing.T) {
 	// Тесты с переменными окружения
 	originalArgs := os.Args
@@ -200,6 +203,7 @@ func TestParseFlagsServer_Environment(t *testing.T) {
 	})
 }
 
+// TestConfig_parseCommandLineServer тестирует метод parseCommandLineServer структуры Config.
 func TestConfig_parseCommandLineServer(t *testing.T) {
 	t.Run("NilFlagValues", func(t *testing.T) {
 		logger := zaptest.NewLogger(t).Sugar()
@@ -234,6 +238,7 @@ func TestConfig_parseCommandLineServer(t *testing.T) {
 	})
 }
 
+// TestConfig_parseEnvironmentServer тестирует метод parseEnvironmentServer структуры Config.
 func TestConfig_parseEnvironmentServer(t *testing.T) {
 	t.Run("AllEnvironmentVariables", func(t *testing.T) {
 		logger := zaptest.NewLogger(t).Sugar()
@@ -314,6 +319,7 @@ func TestConfig_parseEnvironmentServer(t *testing.T) {
 	})
 }
 
+// TestParseFlagsAgent тестирует парсинг конфигурации агента.
 func TestParseFlagsAgent(t *testing.T) {
 	originalArgs := os.Args
 	defer func() { os.Args = originalArgs }()
@@ -375,6 +381,7 @@ func TestParseFlagsAgent(t *testing.T) {
 	})
 }
 
+// TestParseFlagsAgent_Environment тестирует парсинг конфигурации агента из переменных окружения.
 func TestParseFlagsAgent_Environment(t *testing.T) {
 	originalArgs := os.Args
 	defer func() { os.Args = originalArgs }()
@@ -451,6 +458,7 @@ func TestParseFlagsAgent_Environment(t *testing.T) {
 	})
 }
 
+// TestConfigAgent_parseCommandLineAgent тестирует метод parseCommandLineAgent структуры ConfigAgent.
 func TestConfigAgent_parseCommandLineAgent(t *testing.T) {
 	t.Run("EmptyCommandLine", func(t *testing.T) {
 		cfg := &ConfigAgent{}
@@ -471,6 +479,7 @@ func TestConfigAgent_parseCommandLineAgent(t *testing.T) {
 	})
 }
 
+// TestConfigAgent_parseEnvironmentAgent тестирует метод parseEnvironmentAgent структуры ConfigAgent
 func TestConfigAgent_parseEnvironmentAgent(t *testing.T) {
 	t.Run("AllEnvironmentVariables", func(t *testing.T) {
 		cfg := &ConfigAgent{}

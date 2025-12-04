@@ -1,3 +1,4 @@
+// Package agent предоставляет функциональность для сбора метрик системы.
 package agent
 
 import (
