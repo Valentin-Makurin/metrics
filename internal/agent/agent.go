@@ -17,12 +17,12 @@ import (
 )
 
 type agent struct {
+	config    config.ConfigAgent
 	ctx       context.Context
-	wg        sync.WaitGroup
 	storage   MetricsStorage
 	collector MetricsCollector
 	sender    MetricsSender
-	config    config.ConfigAgent
+	wg        sync.WaitGroup
 	ch        chan []models.Metrics
 }
 

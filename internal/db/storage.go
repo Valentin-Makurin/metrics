@@ -15,17 +15,17 @@ import (
 )
 
 type MtrStorage struct {
+	mu            sync.RWMutex
+	filePath      string
 	file          *os.File
 	writer        *bufio.Writer
 	encoder       *json.Encoder
 	mtr           map[string]models.Metrics
-	mu            sync.RWMutex
-	filePath      string
-	storeInterval int
-	restore       bool
 	saveChan      chan struct{}
 	logger        *zap.SugaredLogger
 	pool          *pgxpool.Pool
+	storeInterval int
+	restore       bool
 }
 
 func NewStorage(filePath string, storeInterval int, restore bool, logger *zap.SugaredLogger) *MtrStorage {

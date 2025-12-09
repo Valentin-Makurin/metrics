@@ -14,13 +14,13 @@ import (
 type Config struct {
 	logger        *zap.SugaredLogger
 	RunAddr       string
-	StoreInterval int
 	FilePath      string
-	Restore       bool
 	DBConnStr     string
 	KeyH          string
 	AuditFilePath string
 	AuditURL      string
+	StoreInterval int
+	Restore       bool
 }
 
 // ConfigAgent содержит конфигурационные параметры агента сбора метрик.
