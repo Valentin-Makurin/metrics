@@ -1,3 +1,4 @@
+// Package agent предоставляет функциональность для сбора метрик системы.
 package agent
 
 import (
@@ -9,6 +10,7 @@ import (
 	"github.com/Valentin-Makurin/metrics/internal/config"
 )
 
+// TestAgent_Start тестирует запуск и остановку агента сбора метрик.
 func TestAgent_Start(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -31,6 +33,7 @@ func TestAgent_Start(t *testing.T) {
 	wg.Wait()
 }
 
+// TestAgent_writeMtr тестирует метод writeMtr агента, который записывает метрики в хранилище.
 func TestAgent_writeMtr(t *testing.T) {
 	collector := NewRuntimeCollector()
 	storage := NewMemStorage()

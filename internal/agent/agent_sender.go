@@ -1,3 +1,4 @@
+// Package agent предоставляет функциональность для сбора метрик системы.
 package agent
 
 import (
@@ -14,17 +15,22 @@ import (
 	models "github.com/Valentin-Makurin/metrics/internal/model"
 )
 
+// MetricsSender определяет интерфейс для отправки метрик на сервер.
 type MetricsSender interface {
+	// SendJSONRequestBatch отправляет пакет метрик на сервер.
 	SendJSONRequestBatch(metric any) error
+	// SendJSONRequest отправляет одиночную метрику на сервер.
 	SendJSONRequest(metric models.Metrics) error
 }
 
+// HTTPSender реализует интерфейс MetricsSender для отправки метрик по HTTP.
 type HTTPSender struct {
 	client  *http.Client
 	baseURL string
 	KeyH    string
 }
 
+// NewHTTPSender создает и возвращает новый экземпляр HTTPSender.
 func NewHTTPSender(baseURL, KetH string) *HTTPSender {
 	return &HTTPSender{
 		client:  &http.Client{},
@@ -33,6 +39,10 @@ func NewHTTPSender(baseURL, KetH string) *HTTPSender {
 	}
 }
 
+// SendJSONRequest отправляет одиночную метрику на сервер.
+// Метод выполняет сериализацию метрики в JSON, сжатие gzip,
+// добавление HMAC подписи если задан ключ, и отправку POST-запросом
+// на эндпоинт /update/.
 func (s *HTTPSender) SendJSONRequest(metric models.Metrics) error {
 	var compressedData bytes.Buffer
 	gz := gzip.NewWriter(&compressedData)
@@ -83,6 +93,9 @@ func (s *HTTPSender) SendJSONRequest(metric models.Metrics) error {
 	return nil
 }
 
+// SendJSONRequestBatch отправляет пакет метрик на сервер.
+// Метод выполняет сериализацию данных в JSON, сжатие gzip
+// и отправку POST-запросом на эндпоинт /updates/.
 func (s *HTTPSender) SendJSONRequestBatch(metric any) error {
 	var compressedData bytes.Buffer
 	gz := gzip.NewWriter(&compressedData)

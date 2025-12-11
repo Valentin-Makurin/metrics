@@ -1,3 +1,4 @@
+// Package handler предоставляет HTTP-обработчики для работы с метриками.
 package handler
 
 import (
@@ -12,6 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// MetricRepository определяет интерфейс для базовых операций с метриками.
 type MetricRepository interface {
 	SetVal(key string, mtr models.Metrics)
 	AddVal(key string, mtr models.Metrics)
@@ -19,24 +21,30 @@ type MetricRepository interface {
 	GetAllVal() map[string]string
 }
 
+// BatchRepository определяет интерфейс для пакетных операций с метриками.
 type BatchRepository interface {
 	UpsertBatch(GaugeMtr []models.Metrics, CntMtr map[string]models.Metrics) error
 }
 
+// HealthChecker определяет интерфейс для проверки доступности хранилища.
 type HealthChecker interface {
 	Ping() error
 }
 
+// Storage объединяет все интерфейсы хранилища метрик.
 type Storage interface {
 	MetricRepository
 	BatchRepository
 	HealthChecker
 }
+
+// MtrHandler реализует HTTP-обработчики для работы с метриками.
 type MtrHandler struct {
 	storage Storage
 	logger  *zap.SugaredLogger
 }
 
+// NewMtrHandler создает новый экземпляр обработчика метрик.
 func NewMtrHandler(stor Storage, logger *zap.SugaredLogger) *MtrHandler {
 	return &MtrHandler{
 		storage: stor,
@@ -44,6 +52,7 @@ func NewMtrHandler(stor Storage, logger *zap.SugaredLogger) *MtrHandler {
 	}
 }
 
+// HandlePost обрабатывает текстовые POST запросы для обновления метрик через URL.
 func (h *MtrHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -89,6 +98,7 @@ func (h *MtrHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// HandlePostUpdate обрабатывает JSON POST запросы для обновления одиночной метрики.
 func (h *MtrHandler) HandlePostUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -137,6 +147,7 @@ func (h *MtrHandler) HandlePostUpdate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// HandlePostUpdates обрабатывает JSON POST запросы для пакетного обновления метрик.
 func (h *MtrHandler) HandlePostUpdates(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -149,8 +160,8 @@ func (h *MtrHandler) HandlePostUpdates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var rawMetrics []models.Metrics
-	var validMetricsGauge []models.Metrics
+	rawMetrics := make([]models.Metrics, 0, 60)
+	validMetricsGauge := make([]models.Metrics, 0, 60)
 	validMetricsCounter := make(map[string]models.Metrics)
 
 	decoder := json.NewDecoder(r.Body)
@@ -201,10 +212,12 @@ func (h *MtrHandler) HandlePostUpdates(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// TypeCheck проверяет корректность типа метрики.
 func TypeCheck(metricType string) bool {
 	return metricType == models.Gauge || metricType == models.Counter
 }
 
+// HandleGet обрабатывает текстовые GET запросы для получения значений метрик.
 func (h *MtrHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) != 4 || pathParts[1] != "value" {
@@ -250,6 +263,7 @@ func (h *MtrHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// HandleGetValue обрабатывает JSON POST запросы для получения значений метрик.
 func (h *MtrHandler) HandleGetValue(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
@@ -292,6 +306,7 @@ func (h *MtrHandler) HandleGetValue(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// HandleRoot возвращает HTML страницу со списком всех метрик.
 func (h *MtrHandler) HandleRoot(w http.ResponseWriter, r *http.Request) {
 	metrics := h.storage.GetAllVal()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -347,6 +362,7 @@ func (h *MtrHandler) HandleRoot(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// HandlePing проверяет доступность хранилища метрик.
 func (h *MtrHandler) HandlePing(w http.ResponseWriter, r *http.Request) {
 	err := h.storage.Ping()
 	if err != nil {

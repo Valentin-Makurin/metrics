@@ -1,3 +1,4 @@
+// Package config предоставляет функциональность для загрузки и парсинга конфигурации приложения.
 package config
 
 import (
@@ -9,6 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Config содержит конфигурационные параметры сервера метрик.
 type Config struct {
 	logger        *zap.SugaredLogger
 	RunAddr       string
@@ -17,8 +19,11 @@ type Config struct {
 	Restore       bool
 	DBConnStr     string
 	KeyH          string
+	AuditFilePath string
+	AuditURL      string
 }
 
+// ConfigAgent содержит конфигурационные параметры агента сбора метрик.
 type ConfigAgent struct {
 	HTTPAddr       string
 	KeyH           string
@@ -27,6 +32,7 @@ type ConfigAgent struct {
 	RateLimit      int
 }
 
+// ParseFlagsServer парсит конфигурацию для сервера из командной строки и переменных окружения.
 func ParseFlagsServer(logger *zap.SugaredLogger) Config {
 	cfg := Config{}
 	cfg.logger = logger
@@ -37,21 +43,22 @@ func ParseFlagsServer(logger *zap.SugaredLogger) Config {
 	return cfg
 }
 
+// parseCommandLineServer парсит флаги командной строки для сервера.
 func (cfg *Config) parseCommandLineServer() {
-
 	addrTmp := flag.String("a", "localhost:8080", "address and port to run server")
 	storeIntervalTmp := flag.Int("i", 2, "interval to save metrics")
 	filePathTmp := flag.String("f", "/tmp/metrics.json", "path to storage file")
 	restoreTmp := flag.Bool("r", true, "restore metrics from file on startup")
 	connStrTmp := flag.String("d", "", "postgress connection string")
-	KeyHTmp := flag.String("k", "", "hash key")
+	keyHTmp := flag.String("k", "", "hash key")
+	auditFilePathTmp := flag.String("audit-file", "", "audir file path ")
+	auditURLTmp := flag.String("audit-url", "", "audit url")
 
 	flag.Parse()
 
 	if addrTmp != nil {
 		cfg.RunAddr = *addrTmp
 	}
-
 	if storeIntervalTmp != nil {
 		cfg.StoreInterval = *storeIntervalTmp
 	}
@@ -64,11 +71,19 @@ func (cfg *Config) parseCommandLineServer() {
 	if connStrTmp != nil {
 		cfg.DBConnStr = *connStrTmp
 	}
-	if KeyHTmp != nil {
-		cfg.KeyH = *KeyHTmp
+	if keyHTmp != nil {
+		cfg.KeyH = *keyHTmp
+	}
+
+	if auditFilePathTmp != nil {
+		cfg.AuditFilePath = *auditFilePathTmp
+	}
+	if auditURLTmp != nil {
+		cfg.AuditURL = *auditURLTmp
 	}
 }
 
+// parseEnvironmentServer парсит переменные окружения для сервера.
 func (cfg *Config) parseEnvironmentServer() {
 	varAdrHost, ok := os.LookupEnv("ADDRESS")
 	if ok {
@@ -107,8 +122,19 @@ func (cfg *Config) parseEnvironmentServer() {
 	if ok {
 		cfg.KeyH = varKeyH
 	}
+
+	varAuditFilePath, ok := os.LookupEnv("AUDIT_FILE")
+	if ok {
+		cfg.AuditFilePath = varAuditFilePath
+	}
+
+	varAuditURL, ok := os.LookupEnv("AUDIT_URL")
+	if ok {
+		cfg.AuditURL = varAuditURL
+	}
 }
 
+// ParseFlagsAgent парсит конфигурацию для агента из командной строки и переменных окружения.
 func ParseFlagsAgent() ConfigAgent {
 	cfg := ConfigAgent{}
 
@@ -118,6 +144,7 @@ func ParseFlagsAgent() ConfigAgent {
 	return cfg
 }
 
+// parseCommandLineAgent парсит флаги командной строки для агента.
 func (cfg *ConfigAgent) parseCommandLineAgent() {
 	addrTmp := flag.String("a", "localhost:8080", "address and port to run server")
 	pollInterval := flag.Int("p", 2, "pollInterval")
@@ -148,6 +175,7 @@ func (cfg *ConfigAgent) parseCommandLineAgent() {
 	}
 }
 
+// parseEnvironmentAgent парсит переменные окружения для агента.
 func (cfg *ConfigAgent) parseEnvironmentAgent() {
 	varAdrHost, ok := os.LookupEnv("ADDRESS")
 	if ok {
