@@ -11,6 +11,7 @@ import (
 )
 
 // Config содержит конфигурационные параметры сервера метрик.
+// generate:reset
 type Config struct {
 	logger        *zap.SugaredLogger
 	RunAddr       string
@@ -24,6 +25,7 @@ type Config struct {
 }
 
 // ConfigAgent содержит конфигурационные параметры агента сбора метрик.
+// generate:reset
 type ConfigAgent struct {
 	HTTPAddr       string
 	KeyH           string

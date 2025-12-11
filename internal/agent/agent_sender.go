@@ -24,6 +24,7 @@ type MetricsSender interface {
 }
 
 // HTTPSender реализует интерфейс MetricsSender для отправки метрик по HTTP.
+// generate:reset
 type HTTPSender struct {
 	client  *http.Client
 	baseURL string
