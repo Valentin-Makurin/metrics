@@ -15,7 +15,13 @@ import (
 	"go.uber.org/zap"
 )
 
+var buildVersion string
+var buildDate string
+var buildCommit string
+
 func main() {
+	common.FirstPrint(buildVersion, buildDate, buildCommit)
+
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal("Failed to initialize logger:", err)

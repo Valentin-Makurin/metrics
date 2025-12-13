@@ -7,10 +7,16 @@ import (
 	"time"
 
 	"github.com/Valentin-Makurin/metrics/internal/agent"
+	"github.com/Valentin-Makurin/metrics/internal/common"
 	"github.com/Valentin-Makurin/metrics/internal/config"
 )
 
+var buildVersion string
+var buildDate string
+var buildCommit string
+
 func main() {
+	common.FirstPrint(buildVersion, buildDate, buildCommit)
 
 	cfg := config.ParseFlagsAgent()
 
