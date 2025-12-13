@@ -4,6 +4,7 @@ package common
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -37,4 +38,47 @@ func RetryOperation[T any](
 	}
 
 	return zero, fmt.Errorf("max attempts exceeded, last error: %v", lastErr)
+}
+
+type Resetter interface {
+	Reset()
+}
+
+// Pool пул объектов с дженерик-параметром T
+type Pool[T Resetter] struct {
+	pool    []T
+	mu      sync.Mutex
+	factory func() T
+}
+
+// New конструктор для Pool
+func New[T Resetter](factory func() T) *Pool[T] {
+	return &Pool[T]{
+		pool:    make([]T, 0),
+		factory: factory,
+	}
+}
+
+// Get возвращает объект из пула или создаёт новый, если пул пуст
+func (p *Pool[T]) Get() T {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if len(p.pool) > 0 {
+		obj := p.pool[len(p.pool)-1]
+		p.pool = p.pool[:len(p.pool)-1]
+		return obj
+	}
+
+	return p.factory()
+}
+
+// Put - помещает объект в пул
+func (p *Pool[T]) Put(obj T) {
+	obj.Reset()
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.pool = append(p.pool, obj)
 }
