@@ -4,6 +4,7 @@ package common
 
 import (
 	"fmt"
+	"io"
 	"sync"
 	"time"
 )
@@ -46,44 +47,32 @@ type Resetter interface {
 
 // Pool пул объектов с дженерик-параметром T
 type Pool[T Resetter] struct {
-	pool    []T
-	mu      sync.Mutex
-	factory func() T
+	pool *sync.Pool
 }
 
 // New конструктор для Pool
 func New[T Resetter](factory func() T) *Pool[T] {
 	return &Pool[T]{
-		pool:    make([]T, 0),
-		factory: factory,
+		pool: &sync.Pool{
+			New: func() interface{} {
+				return factory()
+			},
+		},
 	}
 }
 
 // Get возвращает объект из пула или создаёт новый, если пул пуст
 func (p *Pool[T]) Get() T {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if len(p.pool) > 0 {
-		obj := p.pool[len(p.pool)-1]
-		p.pool = p.pool[:len(p.pool)-1]
-		return obj
-	}
-
-	return p.factory()
+	return p.pool.Get().(T)
 }
 
 // Put - помещает объект в пул
 func (p *Pool[T]) Put(obj T) {
 	obj.Reset()
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	p.pool = append(p.pool, obj)
+	p.pool.Put(obj)
 }
 
-func FirstPrint(buildVersion, buildDate, buildCommit string) {
+func FirstPrint(w io.Writer, buildVersion, buildDate, buildCommit string) {
 	if buildVersion == "" {
 		buildVersion = "N/A"
 	}
@@ -94,7 +83,7 @@ func FirstPrint(buildVersion, buildDate, buildCommit string) {
 		buildCommit = "N/A"
 	}
 
-	fmt.Printf("Build version: %s\n", buildVersion)
-	fmt.Printf("Build date: %s\n", buildDate)
-	fmt.Printf("Build commit: %s\n", buildCommit)
+	fmt.Fprintf(w, "Build version: %s\n", buildVersion)
+	fmt.Fprintf(w, "Build date: %s\n", buildDate)
+	fmt.Fprintf(w, "Build commit: %s\n", buildCommit)
 }

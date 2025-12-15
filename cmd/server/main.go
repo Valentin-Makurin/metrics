@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"net/http/pprof"
 
@@ -20,7 +25,10 @@ var buildDate string
 var buildCommit string
 
 func main() {
-	common.FirstPrint(buildVersion, buildDate, buildCommit)
+	common.FirstPrint(os.Stdout, buildVersion, buildDate, buildCommit)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -31,10 +39,13 @@ func main() {
 
 	cfg := config.ParseFlagsServer(sugar)
 
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+
 	mtrHandler := &handler.MtrHandler{}
 
 	if cfg.DBConnStr != "" {
-		dbConn, err := db.NewDatabase(cfg.DBConnStr, sugar)
+		dbConn, err := db.NewDatabase(ctx, cfg.DBConnStr, sugar)
 		if err != nil {
 			log.Fatalf("Ошибка подключения к БД: %v", err)
 		}
@@ -49,7 +60,7 @@ func main() {
 			log.Fatalf("Ошибка пинга к БД: %v", err)
 		}
 
-		dbConn.RunMigrations()
+		dbConn.RunMigrations(ctx)
 		mtrHandler = handler.NewMtrHandler(dbConn, sugar)
 	} else {
 		storage := db.NewStorage(cfg.FilePath, cfg.StoreInterval, cfg.Restore, sugar)
@@ -85,9 +96,33 @@ func main() {
 	r.Handle("/debug/pprof/allocs", pprof.Handler("allocs"))
 	r.Handle("/debug/pprof/mutex", pprof.Handler("mutex"))
 
-	log.Println("Running server on", cfg.RunAddr)
-	err = http.ListenAndServe(cfg.RunAddr, r)
-	if err != nil {
-		log.Println("Filed to start server", err)
+	srv := &http.Server{
+		Addr:    cfg.RunAddr,
+		Handler: r,
 	}
+
+	go func() {
+		sugar.Infow("Running server on", cfg.RunAddr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server stopped with err: %v", err)
+		}
+	}()
+
+	select {
+	case sig := <-shutdown:
+		sugar.Infow("received signal - %v", sig)
+		cancel()
+	case <-ctx.Done():
+		sugar.Info("context cancelled")
+	}
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		sugar.Errorw("server graceful shutdown failed", "err", err)
+	} else {
+		sugar.Info("server stopped gracefully")
+	}
+
 }
