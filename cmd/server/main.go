@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
 	"log"
 	"net/http"
 	"os"
@@ -69,11 +70,21 @@ func main() {
 		mtrHandler = handler.NewMtrHandler(storage, sugar)
 	}
 
+	var privateKey *rsa.PrivateKey
+	if cfg.CryptoKey != "" {
+		privateKey, err = common.ReadPrivateKey(cfg.CryptoKey)
+		if err != nil {
+			sugar.Errorw("filed to load private key", "err", err)
+		}
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.LoggerMiddleware(sugar))
+	r.Use(middleware.DecryptionMiddleware(privateKey))
 	r.Use(middleware.GzipMiddleware)
 	r.Use(middleware.HashMiddleware(cfg.KeyH))
 	r.Use(middleware.AuditMiddleware(&http.Client{}, sugar, cfg.AuditFilePath, cfg.AuditURL))
+
 	r.Post("/update/{metricType}/{metricName}/{value}", mtrHandler.HandlePost)
 	r.Get("/value/{metricType}/{metricName}", mtrHandler.HandleGet)
 

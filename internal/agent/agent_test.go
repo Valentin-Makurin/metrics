@@ -16,7 +16,7 @@ func TestAgent_Start(t *testing.T) {
 
 	collector := NewRuntimeCollector()
 	storage := NewMemStorage()
-	sender := NewHTTPSender("localhost:8080", "")
+	sender := NewHTTPSender("localhost:8080", "", nil)
 
 	agent := NewAgent(ctx, config.ConfigAgent{PollInterval: 2, ReportInterval: 10}, collector, storage, sender)
 
@@ -37,7 +37,7 @@ func TestAgent_Start(t *testing.T) {
 func TestAgent_writeMtr(t *testing.T) {
 	collector := NewRuntimeCollector()
 	storage := NewMemStorage()
-	sender := NewHTTPSender("localhost:8080", "")
+	sender := NewHTTPSender("localhost:8080", "", nil)
 
 	agent := NewAgent(context.Background(), config.ConfigAgent{PollInterval: 2, ReportInterval: 10}, collector, storage, sender)
 

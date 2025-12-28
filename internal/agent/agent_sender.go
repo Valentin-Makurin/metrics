@@ -4,6 +4,8 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,18 +28,21 @@ type MetricsSender interface {
 // HTTPSender реализует интерфейс MetricsSender для отправки метрик по HTTP.
 // generate:reset
 type HTTPSender struct {
-	client  *http.Client
-	baseURL string
-	KeyH    string
+	client    *http.Client
+	baseURL   string
+	KeyH      string
+	PublicKey *rsa.PublicKey
 }
 
 // NewHTTPSender создает и возвращает новый экземпляр HTTPSender.
-func NewHTTPSender(baseURL, KetH string) *HTTPSender {
-	return &HTTPSender{
-		client:  &http.Client{},
-		baseURL: baseURL,
-		KeyH:    KetH,
+func NewHTTPSender(baseURL, ketH string, pub *rsa.PublicKey) *HTTPSender {
+	res := HTTPSender{
+		client:    &http.Client{},
+		baseURL:   baseURL,
+		KeyH:      ketH,
+		PublicKey: pub,
 	}
+	return &res
 }
 
 // SendJSONRequest отправляет одиночную метрику на сервер.
@@ -63,8 +68,24 @@ func (s *HTTPSender) SendJSONRequest(metric models.Metrics) error {
 		return fmt.Errorf("gzip close error: %w", err)
 	}
 
+	var encryptedData bytes.Buffer
+
+	if s.PublicKey != nil {
+		encryptedBytes, err := rsa.EncryptPKCS1v15(
+			rand.Reader,
+			s.PublicKey,
+			compressedData.Bytes(),
+		)
+		if err != nil {
+			return fmt.Errorf("encryption error: %w", err)
+		}
+		encryptedData.Write(encryptedBytes)
+	} else {
+		encryptedData = compressedData
+	}
+
 	url := "http://" + s.baseURL + "/update/"
-	req, err := http.NewRequest("POST", url, &compressedData)
+	req, err := http.NewRequest("POST", url, &encryptedData) //compressedData
 	if err != nil {
 		return fmt.Errorf("create request error: %w", err)
 	}
@@ -77,6 +98,10 @@ func (s *HTTPSender) SendJSONRequest(metric models.Metrics) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
+
+	if s.PublicKey != nil {
+		req.Header.Set("X-Encrypted", "RSA-OAEP") // Флаг шифрования
+	}
 
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -116,8 +141,24 @@ func (s *HTTPSender) SendJSONRequestBatch(metric any) error {
 		return fmt.Errorf("gzip close error: %w", err)
 	}
 
+	var encryptedData bytes.Buffer
+
+	if s.PublicKey != nil {
+		encryptedBytes, err := rsa.EncryptPKCS1v15(
+			rand.Reader,
+			s.PublicKey,
+			compressedData.Bytes(),
+		)
+		if err != nil {
+			return fmt.Errorf("encryption error: %w", err)
+		}
+		encryptedData.Write(encryptedBytes)
+	} else {
+		encryptedData = compressedData
+	}
+
 	url := "http://" + s.baseURL + "/updates/"
-	req, err := http.NewRequest("POST", url, &compressedData)
+	req, err := http.NewRequest("POST", url, &encryptedData) //compressedData
 	if err != nil {
 		return fmt.Errorf("create request error: %w", err)
 	}
@@ -125,6 +166,11 @@ func (s *HTTPSender) SendJSONRequestBatch(metric any) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
+
+	if s.PublicKey != nil {
+		req.Header.Set("X-Encrypted", "RSA-OAEP") // Флаг шифрования
+	}
+
 	resp, err := s.runReq(req)
 	if err != nil {
 		return err

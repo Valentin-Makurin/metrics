@@ -20,6 +20,7 @@ type Config struct {
 	KeyH          string
 	AuditFilePath string
 	AuditURL      string
+	CryptoKey     string
 	StoreInterval int
 	Restore       bool
 }
@@ -29,6 +30,7 @@ type Config struct {
 type ConfigAgent struct {
 	HTTPAddr       string
 	KeyH           string
+	CryptoKey      string
 	PollInterval   int
 	ReportInterval int
 	RateLimit      int
@@ -55,6 +57,7 @@ func (cfg *Config) parseCommandLineServer() {
 	keyHTmp := flag.String("k", "", "hash key")
 	auditFilePathTmp := flag.String("audit-file", "", "audir file path ")
 	auditURLTmp := flag.String("audit-url", "", "audit url")
+	crKeyTmp := flag.String("crypto-key", "private.pem", "crypto key") //
 
 	flag.Parse()
 
@@ -82,6 +85,9 @@ func (cfg *Config) parseCommandLineServer() {
 	}
 	if auditURLTmp != nil {
 		cfg.AuditURL = *auditURLTmp
+	}
+	if crKeyTmp != nil {
+		cfg.CryptoKey = *crKeyTmp
 	}
 }
 
@@ -134,6 +140,11 @@ func (cfg *Config) parseEnvironmentServer() {
 	if ok {
 		cfg.AuditURL = varAuditURL
 	}
+
+	varCrKey, ok := os.LookupEnv("CRYPTO_KEY")
+	if ok {
+		cfg.CryptoKey = varCrKey
+	}
 }
 
 // ParseFlagsAgent парсит конфигурацию для агента из командной строки и переменных окружения.
@@ -153,6 +164,7 @@ func (cfg *ConfigAgent) parseCommandLineAgent() {
 	reportInterval := flag.Int("r", 10, "reportInterval")
 	keyH := flag.String("k", "", "hash key")
 	rateLim := flag.Int("l", 5, "rateLim")
+	crKey := flag.String("crypto-key", "public.pem", "crypto key") //
 
 	flag.Parse()
 
@@ -174,6 +186,10 @@ func (cfg *ConfigAgent) parseCommandLineAgent() {
 
 	if rateLim != nil {
 		cfg.RateLimit = *rateLim
+	}
+
+	if crKey != nil {
+		cfg.CryptoKey = *crKey
 	}
 }
 
@@ -214,5 +230,10 @@ func (cfg *ConfigAgent) parseEnvironmentAgent() {
 			log.Println("Filed to convert string to int, varRateLim", err)
 		}
 		cfg.RateLimit = intRateLim
+	}
+
+	varCrKey, ok := os.LookupEnv("CRYPTO_KEY")
+	if ok {
+		cfg.CryptoKey = varCrKey
 	}
 }

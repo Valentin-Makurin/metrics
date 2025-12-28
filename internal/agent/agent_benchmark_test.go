@@ -23,7 +23,7 @@ func BenchmarkRuntimeCollector_Collect(b *testing.B) {
 	}
 }
 func BenchmarkHashCalculation(b *testing.B) {
-	sender := NewHTTPSender("localhost:8080", "test-key")
+	sender := NewHTTPSender("localhost:8080", "test-key", nil)
 	metric := models.Metrics{
 		ID:    "testMetric",
 		MType: "gauge",
@@ -41,7 +41,7 @@ func BenchmarkHashCalculation(b *testing.B) {
 	}
 }
 func BenchmarkHTTPSender_CreateRequest(b *testing.B) {
-	sender := NewHTTPSender("localhost:8080", "test-key")
+	sender := NewHTTPSender("localhost:8080", "test-key", nil)
 	metric := models.Metrics{
 		ID:    "testMetric",
 		MType: "gauge",

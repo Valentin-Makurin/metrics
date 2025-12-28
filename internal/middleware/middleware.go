@@ -3,6 +3,8 @@ package middleware
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -211,4 +213,29 @@ func sendAuditMessage(auditURL string, msg []byte, mu *sync.Mutex, client *http.
 		return
 	}
 	resp.Body.Close()
+}
+
+// DecryptionMiddleware дешифрует сообщение если передан ключ
+func DecryptionMiddleware(privateKey *rsa.PrivateKey) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if privateKey != nil && r.Header.Get("X-Encrypted") == "RSA-OAEP" {
+				// Читаем и дешифруем тело
+				bodyBytes, _ := io.ReadAll(r.Body)
+				r.Body.Close()
+
+				decryptedMessage, err := rsa.DecryptPKCS1v15(rand.Reader, privateKey, bodyBytes)
+				if err != nil {
+					http.Error(w, "Decryption failed", http.StatusBadRequest)
+					return
+				}
+
+				// Подменяем тело запроса расшифрованными данными
+				r.Body = io.NopCloser(bytes.NewReader(decryptedMessage))
+				r.ContentLength = int64(len(decryptedMessage))
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }

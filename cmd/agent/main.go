@@ -29,9 +29,14 @@ func main() {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
 
+	pubKey, err := common.ReadPubKey(cfg.CryptoKey)
+	if err != nil {
+		log.Println("filed to read pubKey")
+	}
+
 	storage := agent.NewMemStorage()
 	collector := agent.NewRuntimeCollector()
-	sender := agent.NewHTTPSender(cfg.HTTPAddr, cfg.KeyH)
+	sender := agent.NewHTTPSender(cfg.HTTPAddr, cfg.KeyH, pubKey)
 
 	agent := agent.NewAgent(ctx, cfg, collector, storage, sender)
 
