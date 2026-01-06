@@ -27,7 +27,7 @@ func main() {
 	defer cancel()
 
 	shutdown := make(chan os.Signal, 1)
-	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	pubKey, err := common.ReadPubKey(cfg.CryptoKey)
 	if err != nil {
@@ -55,12 +55,19 @@ func main() {
 		select {
 		case <-agentDone:
 			log.Println("agent stopped gracefully")
-		case <-time.After(5 * time.Second):
+		case <-time.After(time.Duration(cfg.ReportInterval+cfg.PollInterval+10) * time.Second):
 			log.Println("agent shutdown timeout")
 		}
 	case <-time.After(30 * time.Second):
 		log.Println("time is over")
 		cancel()
+
+		select {
+		case <-agentDone:
+			log.Println("agent stopped gracefully")
+		case <-time.After(time.Duration(cfg.ReportInterval+cfg.PollInterval+10) * time.Second):
+			log.Println("agent shutdown timeout")
+		}
 	case <-agentDone:
 		log.Println("agent finished")
 	}

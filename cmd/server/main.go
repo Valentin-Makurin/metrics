@@ -41,7 +41,7 @@ func main() {
 	cfg := config.ParseFlagsServer(sugar)
 
 	shutdown := make(chan os.Signal, 1)
-	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	mtrHandler := &handler.MtrHandler{}
 
