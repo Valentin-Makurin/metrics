@@ -85,8 +85,6 @@ func (a *agent) router() {
 	defer a.wg.Done()
 
 	for {
-		// select {
-		// case <-ticker.C:
 		<-ticker.C
 		gaugesData := a.storage.GetAllGauges()
 		couterData := a.storage.GetAllCounters()
@@ -136,9 +134,6 @@ func (a *agent) router() {
 			return
 		default:
 		}
-		// case <-a.ctx.Done():
-		// 	return
-		// }
 	}
 
 }
@@ -156,28 +151,6 @@ func (a *agent) sendW() {
 			for val := range a.ch {
 				a.postMtrW(val)
 			}
-			// for {
-			// 	// select {
-			// 	// case val := <-a.ch:
-			// 	// 	a.postMtrW(val)
-			// 	// case <-a.ctx.Done():
-			// 	// 	return
-			// 	// }
-			// 	// val := <-a.ch
-			// 	select {
-			// 	case val := <-a.ch:
-			// 		a.postMtrW(val)
-			// 	default:
-			// 	}
-
-			// 	// a.postMtrW(<-a.ch)
-
-			// 	select {
-			// 	case <-a.doneSender:
-			// 		return
-			// 	default:
-			// 	}
-			// }
 		}()
 	}
 	wgLocal.Wait()
