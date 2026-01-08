@@ -24,8 +24,8 @@ type Database struct {
 	log  *zap.SugaredLogger
 }
 
-func NewDatabase(connString string, logger *zap.SugaredLogger) (*Database, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func NewDatabase(ctx context.Context, connString string, logger *zap.SugaredLogger) (*Database, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	pool, err := pgxpool.New(ctx, connString)
@@ -130,8 +130,8 @@ func (db *Database) GetAllVal() map[string]string {
 	return res
 }
 
-func (db *Database) RunMigrations() error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func (db *Database) RunMigrations(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	_, err := db.pool.Exec(ctx, models.Migration)

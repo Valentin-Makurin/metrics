@@ -17,13 +17,14 @@ import (
 )
 
 type agent struct {
-	ctx       context.Context
-	wg        sync.WaitGroup
-	storage   MetricsStorage
-	collector MetricsCollector
-	sender    MetricsSender
-	config    config.ConfigAgent
-	ch        chan []models.Metrics
+	config     config.ConfigAgent
+	ctx        context.Context
+	storage    MetricsStorage
+	collector  MetricsCollector
+	sender     MetricsSender
+	wg         sync.WaitGroup
+	ch         chan []models.Metrics
+	doneRouter chan struct{}
 }
 
 func NewAgent(
@@ -34,12 +35,13 @@ func NewAgent(
 	sender MetricsSender,
 ) *agent {
 	return &agent{
-		ctx:       ctx,
-		storage:   storage,
-		collector: collector,
-		sender:    sender,
-		config:    cfg,
-		ch:        make(chan []models.Metrics),
+		ctx:        ctx,
+		storage:    storage,
+		collector:  collector,
+		sender:     sender,
+		config:     cfg,
+		ch:         make(chan []models.Metrics),
+		doneRouter: make(chan struct{}),
 	}
 }
 
@@ -71,6 +73,7 @@ func (a *agent) collect() {
 			}()
 			wg.Wait()
 		case <-a.ctx.Done():
+			close(a.doneRouter)
 			return
 		}
 	}
@@ -82,71 +85,75 @@ func (a *agent) router() {
 	defer a.wg.Done()
 
 	for {
+		<-ticker.C
+		gaugesData := a.storage.GetAllGauges()
+		couterData := a.storage.GetAllCounters()
+
+		res := []models.Metrics{}
+		for key, val := range gaugesData {
+			metric := models.Metrics{
+				ID:    key,
+				MType: models.Gauge,
+			}
+
+			switch v := val.(type) {
+			case float64:
+				metric.Value = &v
+			case uint64:
+				floatVal := float64(v)
+				metric.Value = &floatVal
+			case uint32:
+				floatVal := float64(v)
+				metric.Value = &floatVal
+			case int64:
+				floatVal := float64(v)
+				metric.Value = &floatVal
+			case int:
+				floatVal := float64(v)
+				metric.Value = &floatVal
+			default:
+				fmt.Printf("unsupported gauge value type: %T", val)
+			}
+			res = append(res, metric)
+		}
+
+		for key, val := range couterData {
+			intVal := int64(val)
+			metric := models.Metrics{
+				ID:    key,
+				MType: models.Counter,
+				Delta: &intVal,
+			}
+			res = append(res, metric)
+		}
+		a.ch <- res
+
 		select {
-		case <-ticker.C:
-
-			gaugesData := a.storage.GetAllGauges()
-			couterData := a.storage.GetAllCounters()
-
-			res := []models.Metrics{}
-			for key, val := range gaugesData {
-				metric := models.Metrics{
-					ID:    key,
-					MType: models.Gauge,
-				}
-
-				switch v := val.(type) {
-				case float64:
-					metric.Value = &v
-				case uint64:
-					floatVal := float64(v)
-					metric.Value = &floatVal
-				case uint32:
-					floatVal := float64(v)
-					metric.Value = &floatVal
-				case int64:
-					floatVal := float64(v)
-					metric.Value = &floatVal
-				case int:
-					floatVal := float64(v)
-					metric.Value = &floatVal
-				default:
-					fmt.Printf("unsupported gauge value type: %T", val)
-				}
-				res = append(res, metric)
-			}
-
-			for key, val := range couterData {
-				intVal := int64(val)
-				metric := models.Metrics{
-					ID:    key,
-					MType: models.Counter,
-					Delta: &intVal,
-				}
-				res = append(res, metric)
-			}
-			a.ch <- res
-		case <-a.ctx.Done():
+		case <-a.doneRouter:
+			close(a.ch)
 			return
+		default:
 		}
 	}
 
 }
 
 func (a *agent) sendW() {
+	defer a.wg.Done()
+	var wgLocal sync.WaitGroup
+	wgLocal.Add(a.config.RateLimit)
+
 	for i := range a.config.RateLimit {
 		go func() {
+			defer wgLocal.Done()
+			defer fmt.Println("job finished", i)
 			fmt.Println("job started", i)
-			for {
-				select {
-				case val := <-a.ch:
-					a.postMtrW(val)
-				case <-a.ctx.Done():
-					return
-				}
+			for val := range a.ch {
+				a.postMtrW(val)
 			}
 		}()
 	}
+	wgLocal.Wait()
 }
 
 func (a *agent) writeMtr() {

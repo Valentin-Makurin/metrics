@@ -2,34 +2,58 @@
 package config
 
 import (
+	"encoding/json"
 	"flag"
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 )
 
 // Config содержит конфигурационные параметры сервера метрик.
+// generate:reset
 type Config struct {
 	logger        *zap.SugaredLogger
 	RunAddr       string
-	StoreInterval int
 	FilePath      string
-	Restore       bool
 	DBConnStr     string
 	KeyH          string
 	AuditFilePath string
 	AuditURL      string
+	CryptoKey     string
+	StoreInterval int
+	Restore       bool
 }
 
 // ConfigAgent содержит конфигурационные параметры агента сбора метрик.
+// generate:reset
 type ConfigAgent struct {
 	HTTPAddr       string
 	KeyH           string
+	CryptoKey      string
 	PollInterval   int
 	ReportInterval int
 	RateLimit      int
+}
+
+// TmplFileConfigAgent структура для параметров конфигурации из json файла агента
+type TmplFileConfigAgent struct {
+	Address        string `json:"address"`
+	ReportInterval string `json:"report_interval"`
+	PollInterval   string `json:"poll_interval"`
+	CryptoKey      string `json:"crypto_key"`
+}
+
+// TmplFileConfigServer структура для параметров конфигурации из json файла сервера
+type TmplFileConfigServer struct {
+	Address       string `json:"address"`
+	Restore       bool   `json:"restore"`
+	StoreInterval string `json:"store_interval"`
+	StoreFile     string `json:"store_file"`
+	DatabaseDsn   string `json:"database_dsn"`
+	CryptoKey     string `json:"crypto_key"`
 }
 
 // ParseFlagsServer парсит конфигурацию для сервера из командной строки и переменных окружения.
@@ -37,10 +61,56 @@ func ParseFlagsServer(logger *zap.SugaredLogger) Config {
 	cfg := Config{}
 	cfg.logger = logger
 
+	cfg.parseConfigFileServer()
 	cfg.parseCommandLineServer()
 	cfg.parseEnvironmentServer()
 
 	return cfg
+}
+
+// parseConfigFileServer парсит файл конфигурации строки для сервера.
+func (cfg *Config) parseConfigFileServer() {
+	configPath := ""
+	tmplFileConfig := TmplFileConfigServer{}
+
+	// Флаг для конфигурационного файла
+	configPathFl := flag.String("c,config", "", "Path to config file")
+	if configPathFl != nil {
+		configPath = *configPathFl
+	}
+
+	// ENV переменная для конфигурационного файла
+	if configPath == "" {
+		varConfig, ok := os.LookupEnv("CONFIG")
+		if ok {
+			configPath = varConfig
+		}
+	}
+
+	if configPath != "" {
+		bytes, err := os.ReadFile(configPath)
+		if err != nil {
+			cfg.logger.Error("Filed to ReadFile in parseConfigFileAgent ", err)
+			return
+		}
+
+		if err := json.Unmarshal(bytes, &tmplFileConfig); err != nil {
+			cfg.logger.Error("Filed to Unmarshal in parseConfigFileAgent ", err)
+			return
+		}
+
+		cfg.RunAddr = tmplFileConfig.Address
+		cfg.Restore = tmplFileConfig.Restore
+		cfg.FilePath = tmplFileConfig.StoreFile
+		cfg.DBConnStr = tmplFileConfig.DatabaseDsn
+		cfg.CryptoKey = tmplFileConfig.CryptoKey
+
+		cfg.StoreInterval, err = prepareSeconds(tmplFileConfig.StoreInterval)
+		if err != nil {
+			cfg.logger.Error("Filed to prepareSeconds to StoreInterval", err)
+		}
+
+	}
 }
 
 // parseCommandLineServer парсит флаги командной строки для сервера.
@@ -53,6 +123,7 @@ func (cfg *Config) parseCommandLineServer() {
 	keyHTmp := flag.String("k", "", "hash key")
 	auditFilePathTmp := flag.String("audit-file", "", "audir file path ")
 	auditURLTmp := flag.String("audit-url", "", "audit url")
+	crKeyTmp := flag.String("crypto-key", "private.pem", "crypto key") //
 
 	flag.Parse()
 
@@ -80,6 +151,9 @@ func (cfg *Config) parseCommandLineServer() {
 	}
 	if auditURLTmp != nil {
 		cfg.AuditURL = *auditURLTmp
+	}
+	if crKeyTmp != nil {
+		cfg.CryptoKey = *crKeyTmp
 	}
 }
 
@@ -132,16 +206,70 @@ func (cfg *Config) parseEnvironmentServer() {
 	if ok {
 		cfg.AuditURL = varAuditURL
 	}
+
+	varCrKey, ok := os.LookupEnv("CRYPTO_KEY")
+	if ok {
+		cfg.CryptoKey = varCrKey
+	}
 }
 
 // ParseFlagsAgent парсит конфигурацию для агента из командной строки и переменных окружения.
 func ParseFlagsAgent() ConfigAgent {
 	cfg := ConfigAgent{}
 
+	cfg.parseConfigFileAgent()
 	cfg.parseCommandLineAgent()
 	cfg.parseEnvironmentAgent()
 
 	return cfg
+}
+
+// parseConfigFileAgent парсит файл конфигурации строки для агента.
+func (cfg *ConfigAgent) parseConfigFileAgent() {
+	configPath := ""
+
+	tmplFileConfig := TmplFileConfigAgent{}
+
+	// Флаг для конфигурационного файла
+	configPathFl := flag.String("c,config", "", "Path to config file")
+	if configPathFl != nil {
+		configPath = *configPathFl
+	}
+
+	// ENV переменная для конфигурационного файла
+	if configPath == "" {
+		varConfig, ok := os.LookupEnv("CONFIG")
+		if ok {
+			configPath = varConfig
+		}
+	}
+
+	if configPath != "" {
+		bytes, err := os.ReadFile(configPath)
+		if err != nil {
+			log.Println("Filed to ReadFile in parseConfigFileAgent ", err)
+			return
+		}
+
+		if err := json.Unmarshal(bytes, &tmplFileConfig); err != nil {
+			log.Println("Filed to Unmarshal in parseConfigFileAgent ", err)
+			return
+		}
+
+		cfg.HTTPAddr = tmplFileConfig.Address
+		cfg.CryptoKey = tmplFileConfig.CryptoKey
+
+		cfg.ReportInterval, err = prepareSeconds(tmplFileConfig.ReportInterval)
+		if err != nil {
+			log.Println("Filed to prepareSeconds to ReportInterval", err)
+		}
+
+		cfg.PollInterval, err = prepareSeconds(tmplFileConfig.PollInterval)
+		if err != nil {
+			log.Println("Filed to prepareSeconds to PollInterval", err)
+		}
+
+	}
 }
 
 // parseCommandLineAgent парсит флаги командной строки для агента.
@@ -151,6 +279,7 @@ func (cfg *ConfigAgent) parseCommandLineAgent() {
 	reportInterval := flag.Int("r", 10, "reportInterval")
 	keyH := flag.String("k", "", "hash key")
 	rateLim := flag.Int("l", 5, "rateLim")
+	crKey := flag.String("crypto-key", "public.pem", "crypto key")
 
 	flag.Parse()
 
@@ -172,6 +301,10 @@ func (cfg *ConfigAgent) parseCommandLineAgent() {
 
 	if rateLim != nil {
 		cfg.RateLimit = *rateLim
+	}
+
+	if crKey != nil {
+		cfg.CryptoKey = *crKey
 	}
 }
 
@@ -213,4 +346,17 @@ func (cfg *ConfigAgent) parseEnvironmentAgent() {
 		}
 		cfg.RateLimit = intRateLim
 	}
+
+	varCrKey, ok := os.LookupEnv("CRYPTO_KEY")
+	if ok {
+		cfg.CryptoKey = varCrKey
+	}
+}
+
+func prepareSeconds(tm string) (int, error) {
+	duration, err := time.ParseDuration(tm)
+	if err != nil {
+		return 0, err
+	}
+	return int(duration.Seconds()), nil
 }

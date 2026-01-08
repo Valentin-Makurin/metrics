@@ -8,17 +8,17 @@ import (
 // MockStorage реализует интерфейс Storage для тестирования обработчиков.
 type MockStorage struct {
 	SetValCalled      bool
-	SetValArgs        []interface{}
 	AddValCalled      bool
-	AddValArgs        []interface{}
 	GetValCalled      bool
-	GetValKey         string
-	GetValResult      models.Metrics
 	GetAllValCalled   bool
-	GetAllValResult   map[string]string
 	UpsertBatchCalled bool
-	UpsertBatchError  error
 	PingCalled        bool
+	GetValKey         string
+	SetValArgs        []interface{}
+	AddValArgs        []interface{}
+	GetValResult      models.Metrics
+	GetAllValResult   map[string]string
+	UpsertBatchError  error
 	PingError         error
 	SetValCustom      func(key string, mtr models.Metrics)
 	AddValCustom      func(key string, mtr models.Metrics)

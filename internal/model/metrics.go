@@ -16,7 +16,7 @@ type Metrics struct {
 
 // Event представляет событие аудита для отслеживания операций с метриками.
 type Event struct {
+	IPAddress string   `json:"ip_address"`
 	TS        int64    `json:"ts"`
 	Metrics   []string `json:"metrics"`
-	IPAddress string   `json:"ip_addresss"`
 }
