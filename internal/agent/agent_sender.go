@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"syscall"
@@ -29,18 +30,20 @@ type MetricsSender interface {
 // generate:reset
 type HTTPSender struct {
 	client    *http.Client
+	PublicKey *rsa.PublicKey
 	baseURL   string
 	KeyH      string
-	PublicKey *rsa.PublicKey
+	localIP   string
 }
 
 // NewHTTPSender создает и возвращает новый экземпляр HTTPSender.
 func NewHTTPSender(baseURL, ketH string, pub *rsa.PublicKey) *HTTPSender {
 	res := HTTPSender{
 		client:    &http.Client{},
+		PublicKey: pub,
 		baseURL:   baseURL,
 		KeyH:      ketH,
-		PublicKey: pub,
+		localIP:   getLocalIP(),
 	}
 	return &res
 }
@@ -98,6 +101,9 @@ func (s *HTTPSender) SendJSONRequest(metric models.Metrics) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
+	if s.localIP != "" {
+		req.Header.Set("X-Real-IP", s.localIP)
+	}
 
 	if s.PublicKey != nil {
 		req.Header.Set("X-Encrypted", "RSA-OAEP") // Флаг шифрования
@@ -166,6 +172,9 @@ func (s *HTTPSender) SendJSONRequestBatch(metric any) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
+	if s.localIP != "" {
+		req.Header.Set("X-Real-IP", s.localIP)
+	}
 
 	if s.PublicKey != nil {
 		req.Header.Set("X-Encrypted", "RSA-OAEP") // Флаг шифрования
@@ -215,4 +224,16 @@ func isTemporaryError(err error) bool {
 		}
 	}
 	return false
+}
+
+// getLocalIP получает локальный IP адрес
+func getLocalIP() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return ""
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP.String()
 }
