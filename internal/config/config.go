@@ -23,6 +23,7 @@ type Config struct {
 	AuditFilePath string
 	AuditURL      string
 	CryptoKey     string
+	TrustedSubnet string
 	StoreInterval int
 	Restore       bool
 }
@@ -54,6 +55,7 @@ type TmplFileConfigServer struct {
 	StoreFile     string `json:"store_file"`
 	DatabaseDsn   string `json:"database_dsn"`
 	CryptoKey     string `json:"crypto_key"`
+	TrustedSubnet string `json:"trusted_subnet"`
 }
 
 // ParseFlagsServer парсит конфигурацию для сервера из командной строки и переменных окружения.
@@ -104,6 +106,7 @@ func (cfg *Config) parseConfigFileServer() {
 		cfg.FilePath = tmplFileConfig.StoreFile
 		cfg.DBConnStr = tmplFileConfig.DatabaseDsn
 		cfg.CryptoKey = tmplFileConfig.CryptoKey
+		cfg.TrustedSubnet = tmplFileConfig.TrustedSubnet
 
 		cfg.StoreInterval, err = prepareSeconds(tmplFileConfig.StoreInterval)
 		if err != nil {
@@ -123,7 +126,8 @@ func (cfg *Config) parseCommandLineServer() {
 	keyHTmp := flag.String("k", "", "hash key")
 	auditFilePathTmp := flag.String("audit-file", "", "audir file path ")
 	auditURLTmp := flag.String("audit-url", "", "audit url")
-	crKeyTmp := flag.String("crypto-key", "private.pem", "crypto key") //
+	crKeyTmp := flag.String("crypto-key", "private.pem", "crypto key")
+	truSubTmp := flag.String("t", "", "trusted subnet")
 
 	flag.Parse()
 
@@ -145,7 +149,6 @@ func (cfg *Config) parseCommandLineServer() {
 	if keyHTmp != nil {
 		cfg.KeyH = *keyHTmp
 	}
-
 	if auditFilePathTmp != nil {
 		cfg.AuditFilePath = *auditFilePathTmp
 	}
@@ -154,6 +157,9 @@ func (cfg *Config) parseCommandLineServer() {
 	}
 	if crKeyTmp != nil {
 		cfg.CryptoKey = *crKeyTmp
+	}
+	if truSubTmp != nil {
+		cfg.TrustedSubnet = *truSubTmp
 	}
 }
 
@@ -210,6 +216,11 @@ func (cfg *Config) parseEnvironmentServer() {
 	varCrKey, ok := os.LookupEnv("CRYPTO_KEY")
 	if ok {
 		cfg.CryptoKey = varCrKey
+	}
+
+	varTruSub, ok := os.LookupEnv("TRUSTED_SUBNET")
+	if ok {
+		cfg.TrustedSubnet = varTruSub
 	}
 }
 

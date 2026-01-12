@@ -78,8 +78,14 @@ func main() {
 		}
 	}
 
+	cidrChecker, err := middleware.NewCIDRChecker(cfg.TrustedSubnet)
+	if err != nil {
+		log.Fatalf("Failed to create CIDR checker: %v", err)
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.LoggerMiddleware(sugar))
+	r.Use(cidrChecker.Middleware)
 	r.Use(middleware.DecryptionMiddleware(privateKey))
 	r.Use(middleware.GzipMiddleware)
 	r.Use(middleware.HashMiddleware(cfg.KeyH))
