@@ -12,6 +12,7 @@ import (
 
 	"github.com/Valentin-Makurin/metrics/internal/config"
 	models "github.com/Valentin-Makurin/metrics/internal/model"
+	pb "github.com/Valentin-Makurin/metrics/internal/proto"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 )
@@ -25,6 +26,7 @@ type agent struct {
 	wg         sync.WaitGroup
 	ch         chan []models.Metrics
 	doneRouter chan struct{}
+	protoAgent pb.MetricsClient
 }
 
 func NewAgent(
@@ -33,6 +35,7 @@ func NewAgent(
 	collector MetricsCollector,
 	storage MetricsStorage,
 	sender MetricsSender,
+	// protoAgent pb.MetricsClient,
 ) *agent {
 	return &agent{
 		ctx:        ctx,
@@ -42,6 +45,7 @@ func NewAgent(
 		config:     cfg,
 		ch:         make(chan []models.Metrics),
 		doneRouter: make(chan struct{}),
+		// protoAgent: protoAgent,
 	}
 }
 
@@ -223,7 +227,12 @@ func (a *agent) postMtrW(mtrs []models.Metrics) {
 		}
 	}
 
-	err := a.sender.SendJSONRequestBatch(mtrs)
+	err := a.sender.SendJSONRequestBatchgRPC(mtrs)
+	if err != nil {
+		log.Printf("Failed to SendJSONRequestBatchgRPC metrics")
+	}
+
+	err = a.sender.SendJSONRequestBatch(mtrs)
 	if err != nil {
 		log.Printf("Failed to SendJSONRequestBatch metrics")
 	}

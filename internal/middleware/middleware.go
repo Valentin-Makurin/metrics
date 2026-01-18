@@ -54,6 +54,13 @@ func (c *CIDRChecker) CheckIP(ipStr string) bool {
 	return c.cidr.Contains(ip)
 }
 
+func (c *CIDRChecker) CheckIPGRPC(ipStr string) bool {
+	if c.trustedSubnet != "" {
+		return c.CheckIP(ipStr)
+	}
+	return true
+}
+
 // Middleware функция проверки IP
 func (c *CIDRChecker) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

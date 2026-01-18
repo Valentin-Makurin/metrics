@@ -4,6 +4,7 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
@@ -16,12 +17,17 @@ import (
 
 	"github.com/Valentin-Makurin/metrics/internal/common"
 	models "github.com/Valentin-Makurin/metrics/internal/model"
+	pb "github.com/Valentin-Makurin/metrics/internal/proto"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 // MetricsSender определяет интерфейс для отправки метрик на сервер.
 type MetricsSender interface {
 	// SendJSONRequestBatch отправляет пакет метрик на сервер.
 	SendJSONRequestBatch(metric any) error
+	// SendJSONRequestBatchgRPC отправляет пакет метрик на сервер по gRPC.
+	SendJSONRequestBatchgRPC(metrics []models.Metrics) error
 	// SendJSONRequest отправляет одиночную метрику на сервер.
 	SendJSONRequest(metric models.Metrics) error
 }
@@ -29,21 +35,25 @@ type MetricsSender interface {
 // HTTPSender реализует интерфейс MetricsSender для отправки метрик по HTTP.
 // generate:reset
 type HTTPSender struct {
-	client    *http.Client
-	PublicKey *rsa.PublicKey
-	baseURL   string
-	KeyH      string
-	localIP   string
+	ctx        context.Context
+	client     *http.Client
+	protoAgent pb.MetricsClient
+	PublicKey  *rsa.PublicKey
+	baseURL    string
+	KeyH       string
+	localIP    string
 }
 
 // NewHTTPSender создает и возвращает новый экземпляр HTTPSender.
-func NewHTTPSender(baseURL, ketH string, pub *rsa.PublicKey) *HTTPSender {
+func NewHTTPSender(ctx context.Context, baseURL, ketH string, pub *rsa.PublicKey, protoAgent pb.MetricsClient) *HTTPSender {
 	res := HTTPSender{
-		client:    &http.Client{},
-		PublicKey: pub,
-		baseURL:   baseURL,
-		KeyH:      ketH,
-		localIP:   getLocalIP(),
+		ctx:        ctx,
+		client:     &http.Client{},
+		PublicKey:  pub,
+		baseURL:    baseURL,
+		KeyH:       ketH,
+		localIP:    getLocalIP(),
+		protoAgent: protoAgent,
 	}
 	return &res
 }
@@ -120,6 +130,49 @@ func (s *HTTPSender) SendJSONRequest(metric models.Metrics) error {
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// SendJSONRequestBatchgRPC отправляет пакет метрик на сервер по gRPC.
+func (s *HTTPSender) SendJSONRequestBatchgRPC(metrics []models.Metrics) error {
+	metricsPb := []*pb.Metric{}
+
+	for _, val := range metrics {
+
+		tmpMtr := pb.Metric_builder{
+			Id: val.ID,
+		}
+
+		if val.MType == "gauge" {
+			tmpMtr.Type = pb.Metric_GAUGE
+			tmpMtr.Value = *val.Value
+		} else {
+			tmpMtr.Type = pb.Metric_COUNTER
+			tmpMtr.Delta = *val.Delta
+		}
+
+		metricsPb = append(metricsPb, tmpMtr.Build())
+	}
+
+	request := pb.UpdateMetricsRequest_builder{
+		Metrics: metricsPb,
+	}.Build()
+
+	ctx := context.Background()
+	if s.localIP != "" {
+		md := metadata.New(map[string]string{"X-Real-IP": s.localIP})
+		ctx = metadata.NewOutgoingContext(ctx, md)
+	}
+
+	_, err := s.protoAgent.UpdateMetrics(ctx, request)
+	if err != nil {
+		// Пробуем получить статус gRPC ошибки
+		if st, ok := status.FromError(err); ok {
+			return fmt.Errorf("gRPC ошибка: код=%v, сообщение=%v", st.Code(), st.Message())
+		}
+		return fmt.Errorf("ошибка при вызове UpdateMetrics: %w", err)
 	}
 
 	return nil

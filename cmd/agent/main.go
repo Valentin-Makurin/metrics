@@ -12,6 +12,8 @@ import (
 	"github.com/Valentin-Makurin/metrics/internal/agent"
 	"github.com/Valentin-Makurin/metrics/internal/common"
 	"github.com/Valentin-Makurin/metrics/internal/config"
+
+	pb "github.com/Valentin-Makurin/metrics/internal/proto"
 )
 
 var buildVersion string
@@ -34,9 +36,15 @@ func main() {
 		log.Println("filed to read pubKey")
 	}
 
+	conn, err := agent.NewProtoConn(cfg.GRPCAddress)
+	if err != nil {
+		log.Fatalf("Ошибка создания grpc агента: %v", err)
+	}
+	defer conn.Close()
+
 	storage := agent.NewMemStorage()
 	collector := agent.NewRuntimeCollector()
-	sender := agent.NewHTTPSender(cfg.HTTPAddr, cfg.KeyH, pubKey)
+	sender := agent.NewHTTPSender(ctx, cfg.HTTPAddr, cfg.KeyH, pubKey, pb.NewMetricsClient(conn))
 
 	agent := agent.NewAgent(ctx, cfg, collector, storage, sender)
 

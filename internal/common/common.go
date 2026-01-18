@@ -11,6 +11,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	models "github.com/Valentin-Makurin/metrics/internal/model"
 )
 
 // RetryOperation выполняет операцию с повторными попытками при временных ошибках.
@@ -146,4 +148,9 @@ func ReadPubKey(pub string) (*rsa.PublicKey, error) {
 	}
 	return rsaPubKey, nil
 
+}
+
+// TypeCheck проверяет корректность типа метрики.
+func TypeCheck(metricType string) bool {
+	return metricType == models.Gauge || metricType == models.Counter
 }
