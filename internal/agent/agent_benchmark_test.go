@@ -3,12 +3,15 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"testing"
 
 	"github.com/Valentin-Makurin/metrics/internal/common"
 	models "github.com/Valentin-Makurin/metrics/internal/model"
+	pb "github.com/Valentin-Makurin/metrics/internal/proto"
 )
 
 func BenchmarkRuntimeCollector_Collect(b *testing.B) {
@@ -23,7 +26,13 @@ func BenchmarkRuntimeCollector_Collect(b *testing.B) {
 	}
 }
 func BenchmarkHashCalculation(b *testing.B) {
-	sender := NewHTTPSender("localhost:8080", "test-key", nil)
+	conn, err := NewProtoConn(":3200")
+	if err != nil {
+		log.Fatalf("Ошибка создания grpc агента: %v", err)
+	}
+	defer conn.Close()
+
+	sender := NewHTTPSender(context.Background(), "localhost:8080", "test-key", nil, pb.NewMetricsClient(conn))
 	metric := models.Metrics{
 		ID:    "testMetric",
 		MType: "gauge",
@@ -41,7 +50,13 @@ func BenchmarkHashCalculation(b *testing.B) {
 	}
 }
 func BenchmarkHTTPSender_CreateRequest(b *testing.B) {
-	sender := NewHTTPSender("localhost:8080", "test-key", nil)
+	conn, err := NewProtoConn(":3200")
+	if err != nil {
+		log.Fatalf("Ошибка создания grpc агента: %v", err)
+	}
+	defer conn.Close()
+
+	sender := NewHTTPSender(context.Background(), "localhost:8080", "test-key", nil, pb.NewMetricsClient(conn))
 	metric := models.Metrics{
 		ID:    "testMetric",
 		MType: "gauge",

@@ -7,6 +7,7 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -19,6 +20,61 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 )
+
+// CIDRChecker middleware для проверки IP по CIDR
+type CIDRChecker struct {
+	trustedSubnet string
+	cidr          *net.IPNet
+}
+
+// NewCIDRChecker создает новый middleware для проверки CIDR
+func NewCIDRChecker(trustedSubnet string) (*CIDRChecker, error) {
+	if trustedSubnet == "" {
+		return &CIDRChecker{trustedSubnet: ""}, nil
+	}
+
+	_, cidr, err := net.ParseCIDR(trustedSubnet)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CIDRChecker{
+		trustedSubnet: trustedSubnet,
+		cidr:          cidr,
+	}, nil
+}
+
+// CheckIP проверяет IP адрес
+func (c *CIDRChecker) CheckIP(ipStr string) bool {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false
+	}
+
+	return c.cidr.Contains(ip)
+}
+
+func (c *CIDRChecker) CheckIPGRPC(ipStr string) bool {
+	if c.trustedSubnet != "" {
+		return c.CheckIP(ipStr)
+	}
+	return true
+}
+
+// Middleware функция проверки IP
+func (c *CIDRChecker) Middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if c.trustedSubnet != "" {
+			realIP := r.Header.Get("X-Real-IP")
+
+			if !c.CheckIP(realIP) {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
 
 // LoggerMiddleware создает middleware для логирования HTTP запросов и ответов.
 func LoggerMiddleware(logger *zap.SugaredLogger) func(next http.Handler) http.Handler {

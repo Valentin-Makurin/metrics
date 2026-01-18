@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"crypto/rsa"
+	"fmt"
 	"log"
+	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,10 +18,13 @@ import (
 	"github.com/Valentin-Makurin/metrics/internal/common"
 	"github.com/Valentin-Makurin/metrics/internal/config"
 	"github.com/Valentin-Makurin/metrics/internal/db"
+	"github.com/Valentin-Makurin/metrics/internal/grpcserver"
 	"github.com/Valentin-Makurin/metrics/internal/handler"
 	"github.com/Valentin-Makurin/metrics/internal/middleware"
+	pb "github.com/Valentin-Makurin/metrics/internal/proto"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 var buildVersion string
@@ -45,6 +51,21 @@ func main() {
 
 	mtrHandler := &handler.MtrHandler{}
 
+	cidrChecker, err := middleware.NewCIDRChecker(cfg.TrustedSubnet)
+	if err != nil {
+		log.Fatalf("Failed to create CIDR checker: %v", err)
+	}
+	//
+	listen, err := net.Listen("tcp", cfg.GRPCAddress)
+	if err != nil {
+		slog.Error("ошибка при инициализации listener", "error", err)
+		os.Exit(1)
+	}
+
+	// Создаем gRPC сервер
+	s := grpc.NewServer(grpc.UnaryInterceptor(grpcserver.NewUnaryInterceptor(cidrChecker)))
+	//
+
 	if cfg.DBConnStr != "" {
 		dbConn, err := db.NewDatabase(ctx, cfg.DBConnStr, sugar)
 		if err != nil {
@@ -63,11 +84,13 @@ func main() {
 
 		dbConn.RunMigrations(ctx)
 		mtrHandler = handler.NewMtrHandler(dbConn, sugar)
+		pb.RegisterMetricsServer(s, grpcserver.NewServer(dbConn)) //
 	} else {
 		storage := db.NewStorage(cfg.FilePath, cfg.StoreInterval, cfg.Restore, sugar)
 		storage.PrepareFile()
 		storage.StartTicker()
 		mtrHandler = handler.NewMtrHandler(storage, sugar)
+		pb.RegisterMetricsServer(s, grpcserver.NewServer(storage)) //
 	}
 
 	var privateKey *rsa.PrivateKey
@@ -80,6 +103,7 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Use(middleware.LoggerMiddleware(sugar))
+	r.Use(cidrChecker.Middleware)
 	r.Use(middleware.DecryptionMiddleware(privateKey))
 	r.Use(middleware.GzipMiddleware)
 	r.Use(middleware.HashMiddleware(cfg.KeyH))
@@ -116,6 +140,15 @@ func main() {
 		sugar.Infow("Running server on", cfg.RunAddr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server stopped with err: %v", err)
+		}
+	}()
+
+	go func() {
+		fmt.Println("сервер gRPC начал работу")
+		// Получение запроса gRpc
+		if err := s.Serve(listen); err != nil {
+			slog.Error("ошибка при работе сервера", "error", err)
+			os.Exit(1)
 		}
 	}()
 

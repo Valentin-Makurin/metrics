@@ -23,6 +23,8 @@ type Config struct {
 	AuditFilePath string
 	AuditURL      string
 	CryptoKey     string
+	TrustedSubnet string
+	GRPCAddress   string
 	StoreInterval int
 	Restore       bool
 }
@@ -33,6 +35,7 @@ type ConfigAgent struct {
 	HTTPAddr       string
 	KeyH           string
 	CryptoKey      string
+	GRPCAddress    string
 	PollInterval   int
 	ReportInterval int
 	RateLimit      int
@@ -44,6 +47,7 @@ type TmplFileConfigAgent struct {
 	ReportInterval string `json:"report_interval"`
 	PollInterval   string `json:"poll_interval"`
 	CryptoKey      string `json:"crypto_key"`
+	GRPCAddress    string `json:"grpc_address"`
 }
 
 // TmplFileConfigServer структура для параметров конфигурации из json файла сервера
@@ -54,6 +58,8 @@ type TmplFileConfigServer struct {
 	StoreFile     string `json:"store_file"`
 	DatabaseDsn   string `json:"database_dsn"`
 	CryptoKey     string `json:"crypto_key"`
+	TrustedSubnet string `json:"trusted_subnet"`
+	GRPCAddress   string `json:"grpc_address"`
 }
 
 // ParseFlagsServer парсит конфигурацию для сервера из командной строки и переменных окружения.
@@ -104,12 +110,13 @@ func (cfg *Config) parseConfigFileServer() {
 		cfg.FilePath = tmplFileConfig.StoreFile
 		cfg.DBConnStr = tmplFileConfig.DatabaseDsn
 		cfg.CryptoKey = tmplFileConfig.CryptoKey
+		cfg.TrustedSubnet = tmplFileConfig.TrustedSubnet
 
 		cfg.StoreInterval, err = prepareSeconds(tmplFileConfig.StoreInterval)
 		if err != nil {
 			cfg.logger.Error("Filed to prepareSeconds to StoreInterval", err)
 		}
-
+		cfg.GRPCAddress = tmplFileConfig.GRPCAddress
 	}
 }
 
@@ -123,7 +130,9 @@ func (cfg *Config) parseCommandLineServer() {
 	keyHTmp := flag.String("k", "", "hash key")
 	auditFilePathTmp := flag.String("audit-file", "", "audir file path ")
 	auditURLTmp := flag.String("audit-url", "", "audit url")
-	crKeyTmp := flag.String("crypto-key", "private.pem", "crypto key") //
+	crKeyTmp := flag.String("crypto-key", "private.pem", "crypto key")
+	truSubTmp := flag.String("t", "", "trusted subnet")
+	GRPCAddressTmp := flag.String("grpca", ":3200", "grpc server address")
 
 	flag.Parse()
 
@@ -145,7 +154,6 @@ func (cfg *Config) parseCommandLineServer() {
 	if keyHTmp != nil {
 		cfg.KeyH = *keyHTmp
 	}
-
 	if auditFilePathTmp != nil {
 		cfg.AuditFilePath = *auditFilePathTmp
 	}
@@ -154,6 +162,12 @@ func (cfg *Config) parseCommandLineServer() {
 	}
 	if crKeyTmp != nil {
 		cfg.CryptoKey = *crKeyTmp
+	}
+	if truSubTmp != nil {
+		cfg.TrustedSubnet = *truSubTmp
+	}
+	if GRPCAddressTmp != nil {
+		cfg.GRPCAddress = *GRPCAddressTmp
 	}
 }
 
@@ -211,6 +225,17 @@ func (cfg *Config) parseEnvironmentServer() {
 	if ok {
 		cfg.CryptoKey = varCrKey
 	}
+
+	varTruSub, ok := os.LookupEnv("TRUSTED_SUBNET")
+	if ok {
+		cfg.TrustedSubnet = varTruSub
+	}
+
+	varGRPCAddress, ok := os.LookupEnv("GRPC_ADDRESS")
+	if ok {
+		cfg.GRPCAddress = varGRPCAddress
+	}
+
 }
 
 // ParseFlagsAgent парсит конфигурацию для агента из командной строки и переменных окружения.
@@ -269,6 +294,7 @@ func (cfg *ConfigAgent) parseConfigFileAgent() {
 			log.Println("Filed to prepareSeconds to PollInterval", err)
 		}
 
+		cfg.GRPCAddress = tmplFileConfig.GRPCAddress
 	}
 }
 
@@ -280,6 +306,7 @@ func (cfg *ConfigAgent) parseCommandLineAgent() {
 	keyH := flag.String("k", "", "hash key")
 	rateLim := flag.Int("l", 5, "rateLim")
 	crKey := flag.String("crypto-key", "public.pem", "crypto key")
+	GRPCAddressTmp := flag.String("grpca", ":3200", "grpc agent address")
 
 	flag.Parse()
 
@@ -305,6 +332,10 @@ func (cfg *ConfigAgent) parseCommandLineAgent() {
 
 	if crKey != nil {
 		cfg.CryptoKey = *crKey
+	}
+
+	if GRPCAddressTmp != nil {
+		cfg.GRPCAddress = *GRPCAddressTmp
 	}
 }
 
@@ -350,6 +381,11 @@ func (cfg *ConfigAgent) parseEnvironmentAgent() {
 	varCrKey, ok := os.LookupEnv("CRYPTO_KEY")
 	if ok {
 		cfg.CryptoKey = varCrKey
+	}
+
+	varGRPCAddress, ok := os.LookupEnv("GRPC_ADDRESS")
+	if ok {
+		cfg.GRPCAddress = varGRPCAddress
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Valentin-Makurin/metrics/internal/common"
 	models "github.com/Valentin-Makurin/metrics/internal/model"
 	"go.uber.org/zap"
 )
@@ -74,7 +75,7 @@ func (h *MtrHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !TypeCheck(metricType) {
+	if !common.TypeCheck(metricType) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
@@ -123,7 +124,7 @@ func (h *MtrHandler) HandlePostUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !TypeCheck(metric.MType) {
+	if !common.TypeCheck(metric.MType) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -175,7 +176,7 @@ func (h *MtrHandler) HandlePostUpdates(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if !TypeCheck(val.MType) {
+		if !common.TypeCheck(val.MType) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -212,11 +213,6 @@ func (h *MtrHandler) HandlePostUpdates(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// TypeCheck проверяет корректность типа метрики.
-func TypeCheck(metricType string) bool {
-	return metricType == models.Gauge || metricType == models.Counter
-}
-
 // HandleGet обрабатывает текстовые GET запросы для получения значений метрик.
 func (h *MtrHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	pathParts := strings.Split(r.URL.Path, "/")
@@ -227,7 +223,7 @@ func (h *MtrHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 
 	metricType := pathParts[2]
 	metricName := pathParts[3]
-	if !TypeCheck(metricType) {
+	if !common.TypeCheck(metricType) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
@@ -278,7 +274,7 @@ func (h *MtrHandler) HandleGetValue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !TypeCheck(metric.MType) {
+	if !common.TypeCheck(metric.MType) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
